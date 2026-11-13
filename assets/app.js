@@ -1491,7 +1491,6 @@
   $$("nav.main [data-ic]").forEach((a) => a.insertAdjacentHTML("afterbegin", icon(a.dataset.ic)));
   $$("nav.main .dd-btn").forEach((b) => b.addEventListener("click", () => { const dd = b.parentElement, was = dd.classList.contains("open"); $$("nav.main .dd").forEach((x) => x.classList.remove("open")); dd.classList.toggle("open", !was); b.setAttribute("aria-expanded", !was); }));
   document.addEventListener("click", (e) => { if (!e.target.closest(".dd")) $$("nav.main .dd.open").forEach((x) => x.classList.remove("open")); });
-  if (DEMO) { $("#demoBar").hidden = false; $("#demoBar").insertAdjacentHTML("afterbegin", icon("alert")); }
   $("#favBtn").insertAdjacentHTML("afterbegin", icon("heart"));
   $(".burger").innerHTML = icon("menu");
   $("#toTop").innerHTML = icon("arrowUp");
