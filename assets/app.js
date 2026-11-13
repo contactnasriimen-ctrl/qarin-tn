@@ -1,16 +1,16 @@
-/* Qarin.tn — comparateur tunisien. Vanilla JS, routing par hash. */
+/* Qarin.tn — comparateur tunisien. Vanilla JS, routage par hash, moteur de comparaison générique. */
 (function () {
   "use strict";
   const D = window.QDATA;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   let app = $("#app");
+
+  /* ================= utilitaires ================= */
   const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
   const tnd = (n) => nf.format(Math.round(n)) + " DT";
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-  /* ---------- utilitaires ---------- */
   function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function rng(seed) { let a = seed; return function () { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   const pad = (n) => String(n).padStart(2, "0");
@@ -23,79 +23,338 @@
   const hm = (min) => pad(Math.floor(min / 60) % 24) + ":" + pad(min % 60);
   const dur = (min) => Math.floor(min / 60) + " h " + pad(min % 60);
   const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(new Date(s + "T00:00:00"));
+  const secs = (s) => s < 60 ? Math.round(s) + " s" : s < 3600 ? Math.round(s / 60) + " min" : (s / 3600).toFixed(1).replace(".", ",") + " h";
+  const spd = (m) => (m >= 1000 ? m / 1000 + " Gbps" : m + " Mbps");
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
+  };
+
+  /* ================= icônes ================= */
+  const P = {
+    wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/>',
+    phone: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+    plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+    hotel: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+    car: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+    key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+    heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    crown: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>',
+    printer: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+    arrow: '<path d="M5 12h14M12 5l7 7-7 7"/>',
+    arrowUp: '<path d="m5 12 7-7 7 7M12 19V5"/>',
+    sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+    scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>',
+    chevR: '<path d="m9 18 6-6-6-6"/>',
+    zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    star: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    tag: '<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1"/>',
+    calc: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+    lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    unlock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    bag: '<rect x="6" y="7" width="12" height="14" rx="2"/><path d="M9 7V4h6v3"/>',
+    fire: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
+    trend: '<path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>'
+  };
+  const icon = (n, c) => `<svg class="i ${c || ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
 
   function badge(p) {
-    const x = D.providers[p] || { short: p.slice(0, 2).toUpperCase(), color: "#334155" };
-    return `<div class="pbadge" style="background:${x.color}" aria-hidden="true">${x.short}</div>`;
+    const x = D.providers[p] || { short: String(p).replace(/^(Hôtel|Dar)\s+/, "").slice(0, 2).toUpperCase(), color: "#334155" };
+    return `<div class="pbadge" style="background:${x.color}" aria-hidden="true">${esc(x.short)}</div>`;
   }
+  const badgeOf = (it) => (it.short ? `<div class="pbadge" style="background:${it.color}" aria-hidden="true">${esc(it.short)}</div>` : badge(it.p));
   const purl = (p) => (D.providers[p] || {}).url || "#";
-  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200); }
+  function toast(msg, ic) { const t = $("#toast"); t.innerHTML = icon(ic || "check") + esc(msg); t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2300); }
   function go(path, params) { const q = params ? "?" + new URLSearchParams(params).toString() : ""; location.hash = "#/" + path + q; }
   const opt = (v, label, sel) => `<option value="${esc(v)}" ${String(v) === String(sel) ? "selected" : ""}>${esc(label)}</option>`;
-  const stars = (n) => "★".repeat(n) + '<span style="opacity:.25">' + "★".repeat(5 - n) + "</span>";
-  const scoreLabel = (s) => s >= 9 ? "Excellent" : s >= 8.5 ? "Très bien" : s >= 8 ? "Bien" : s >= 7 ? "Correct" : "Moyen";
-  const scoreHtml = (s) => `<span class="score"><span class="pill">${s.toFixed(1)}</span><small>${scoreLabel(s)}</small></span>`;
-  const DISCLAIMER = `<div class="note">ℹ️ <b>Tarifs indicatifs</b> — les prix affichés sont des estimations établies à partir des grilles publiques et peuvent varier. Le prix final est toujours confirmé sur le site du fournisseur.</div>`;
+  const starsHtml = (n) => `<span class="stars" aria-label="${n} étoiles">${"★".repeat(n)}</span>`;
+  const scoreLabel = (s) => (s >= 9 ? "Excellent" : s >= 8.2 ? "Très bien" : s >= 7.4 ? "Bien" : s >= 6.5 ? "Correct" : "Moyen");
+  const note = (html) => `<div class="note">${icon("info")}<div>${html}</div></div>`;
+  const NOTE_DEFAULT = "<b>Tarifs indicatifs</b> — estimations établies à partir des grilles publiques. Le prix final est toujours confirmé sur le site du fournisseur.";
+  const feats = (arr) => `<ul class="feats">${arr.map((f) => `<li>${icon("check")}${esc(f)}</li>`).join("")}</ul>`;
+  const meter = (label, pct, val) => `<div class="meter"><span>${label}</span><div class="track"><i style="width:${clamp(pct, 3, 100)}%"></i></div><b>${val}</b></div>`;
+  const spec = (l, v) => `<div class="spec"><small>${l}</small><b>${v}</b></div>`;
+  const yes = (b) => ({ n: b ? 1 : 0, t: b ? `<span style="color:var(--ok)">${icon("check")}</span>` : '<span class="muted">—</span>' });
 
-  function pageHead(icon, title, sub, crumb) {
-    return `<div class="page-head"><div class="container"><div class="crumbs"><a href="#/">Accueil</a> › ${esc(crumb || title)}</div><h1><span>${icon}</span>${esc(title)}</h1><p>${esc(sub)}</p></div></div>`;
+  function pageHead(ic, title, sub, crumb) {
+    return `<div class="page-head"><div class="blob"></div><div class="container"><div class="crumbs"><a href="#/">Accueil</a>${icon("chevR")}${esc(crumb || title)}</div><h1><span class="hico">${icon(ic)}</span>${esc(title)}</h1><p>${sub}</p></div></div>`;
   }
 
-  /* ---------- comparateur (tiroir) ---------- */
-  const cmp = { cat: null, ids: [], pool: {}, spec: null, title: "" };
-  function cmpSetup(cat, title, spec) { cmp.cat = cat; cmp.title = title; cmp.spec = spec; cmp.ids = []; cmp.pool = {}; }
-  function cmpPool(items) { items.forEach((it) => (cmp.pool[it.id] = it)); }
-  const cmpChk = (id) => `<label class="compare-chk"><input type="checkbox" data-cmp="${id}" ${cmp.ids.includes(id) ? "checked" : ""}> Comparer</label>`;
-  function renderCmpBar() {
-    const bar = $("#cmpBar");
-    if (!cmp.cat || !cmp.ids.length) { bar.classList.remove("show"); return; }
-    bar.classList.add("show");
-    $(".chips", bar).innerHTML = cmp.ids.map((id) => `<span class="chip">${esc(cmp.pool[id].p)} · ${esc(cmp.pool[id].name)}</span>`).join("");
-    $("#cmpGo").textContent = `Comparer (${cmp.ids.length})`;
+  /* ================= thème ================= */
+  function setTheme(t) { document.documentElement.dataset.theme = t; LS.set("qarin-theme-v", t); try { localStorage.setItem("qarin-theme", t); } catch (e) { /* */ } $("#themeBtn").innerHTML = icon(t === "dark" ? "sun" : "moon"); $("#themeBtn").setAttribute("aria-label", t === "dark" ? "Mode clair" : "Mode sombre"); }
+
+  /* ================= favoris ================= */
+  let FAV = LS.get("qarin-favs", {});
+  const favK = (c, id) => c + ":" + id;
+  const isFav = (c, id) => !!FAV[favK(c, id)];
+  function favCount() { const n = Object.keys(FAV).length; const d = $("#favDot"); d.textContent = n; d.hidden = !n; }
+  function toggleFav(cfg, it, btn) {
+    const k = favK(cfg.key, it.id);
+    if (FAV[k]) { delete FAV[k]; toast("Retiré des favoris", "heart"); }
+    else { const f = cfg.fav(it, cmp.st); FAV[k] = { cat: cfg.crumb, badge: badgeOf(it), title: f.title, sub: f.sub, price: f.price, url: cfg.url(it, cmp.st), route: location.hash, t: Date.now() }; toast("Ajouté à vos favoris", "heart"); }
+    LS.set("qarin-favs", FAV);
+    const on = !!FAV[k]; btn.classList.toggle("on", on); btn.setAttribute("aria-pressed", on); $("span", btn).textContent = on ? "Sauvé" : "Sauver";
+    favCount();
   }
-  function openCompare() {
-    const items = cmp.ids.map((id) => cmp.pool[id]);
-    if (items.length < 2) { toast("Sélectionnez au moins 2 offres"); return; }
-    let html = `<h2 style="margin-top:0">Comparatif ${esc(cmp.title)}</h2><div style="overflow-x:auto"><table class="cmp"><thead><tr><th></th>`;
-    html += items.map((it) => `<th><div style="display:flex;flex-direction:column;align-items:center;gap:6px">${badge(it.p)}<b>${esc(it.name)}</b><small style="color:var(--muted)">${esc(it.p)}</small></div></th>`).join("") + "</tr></thead><tbody>";
-    cmp.spec.forEach(([label, fn, better]) => {
-      const vals = items.map((it) => fn(it));
-      let win = -1;
-      if (better) { const nums = vals.map((v) => (typeof v === "object" ? v.n : v)); const target = better === "min" ? Math.min(...nums) : Math.max(...nums); if (nums.filter((n) => n === target).length < nums.length) win = nums.indexOf(target); }
-      html += `<tr><td>${esc(label)}</td>` + vals.map((v, i) => `<td class="${i === win ? "win" : ""}">${typeof v === "object" ? v.t : esc(v)}</td>`).join("") + "</tr>";
+
+  /* ================= comparateur ================= */
+  const cmp = { cfg: null, ids: [], pool: {}, st: null, params: null, path: "" };
+  function toggleCmp(id) {
+    const i = cmp.ids.indexOf(id);
+    if (i >= 0) cmp.ids.splice(i, 1);
+    else { if (cmp.ids.length >= 3) { toast("Maximum 3 offres — retirez-en une d'abord", "info"); return; } cmp.ids.push(id); if (cmp.ids.length === 1) toast("Ajoutez une 2ᵉ offre pour comparer", "scale"); }
+    refreshCmpUI();
+  }
+  function refreshCmpUI() {
+    $$("[data-cmpt]").forEach((b) => {
+      const on = cmp.ids.includes(b.dataset.cmpt);
+      b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+      const svg = $("svg", b); if (svg) svg.outerHTML = icon(on ? "check" : "scale");
+      const art = b.closest(".offer"); if (art) art.classList.toggle("selected", on);
     });
-    html += "<tr><td></td>" + items.map((it) => `<td><a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${purl(it.p)}">Voir l'offre</a></td>`).join("") + "</tr></tbody></table></div>";
-    $("#modalBody").innerHTML = html;
-    $("#modal").classList.add("show");
-  }
-  document.addEventListener("change", (e) => {
-    const id = e.target.dataset && e.target.dataset.cmp;
-    if (!id) return;
-    if (e.target.checked) {
-      if (cmp.ids.length >= 3) { e.target.checked = false; toast("Maximum 3 offres à comparer"); return; }
-      cmp.ids.push(id);
-    } else cmp.ids = cmp.ids.filter((x) => x !== id);
     renderCmpBar();
-  });
-
-  /* ---------- filtres génériques ---------- */
-  function checks(name, values, selected, counts) {
-    return values.map((v) => `<label class="check"><input type="checkbox" name="${name}" value="${esc(v)}" ${selected.has(v) ? "checked" : ""}> ${esc(v)}${counts ? `<span class="cnt">${counts[v] || 0}</span>` : ""}</label>`).join("");
   }
-  const readChecks = (form, name) => new Set($$(`input[name="${name}"]:checked`, form).map((i) => i.value));
-  function sortBar(opts, active) { return `<div class="sort">${opts.map(([k, l]) => `<button data-sort="${k}" class="${k === active ? "active" : ""}">${l}</button>`).join("")}</div>`; }
-  function wireList(root, state, renderFn, readFn) {
-    const form = $(".filters form", root);
-    form.addEventListener("input", () => { readFn(form); renderFn(); });
-    form.addEventListener("submit", (e) => e.preventDefault());
-    root.addEventListener("click", (e) => {
-      const s = e.target.closest("[data-sort]");
-      if (s) { state.sort = s.dataset.sort; $$("[data-sort]", root).forEach((b) => b.classList.toggle("active", b === s)); renderFn(); }
-      if (e.target.closest(".toggle-filters")) $(".filters", root).classList.toggle("open");
-      if (e.target.closest("[data-reset]")) { form.reset(); readFn(form); renderFn(); }
+  function renderCmpBar() {
+    const bar = $("#cmpBar"), on = !!cmp.cfg && cmp.ids.length > 0;
+    bar.classList.toggle("show", on); document.body.classList.toggle("cmp-on", on);
+    if (!on) return;
+    $(".slots", bar).innerHTML = [0, 1, 2].map((i) => { const id = cmp.ids[i]; if (!id) return '<div class="slot">+</div>'; const it = cmp.pool[id]; return `<div class="slot" title="${esc(it.name)}">${badgeOf(it)}<button type="button" data-rm="${esc(id)}" aria-label="Retirer">${icon("x")}</button></div>`; }).join("");
+    $(".lbl", bar).innerHTML = cmp.ids.length < 2 ? "Ajoutez une offre<small>pour lancer le comparatif</small>" : `${cmp.ids.length} offres prêtes<small>Tableau détaillé + verdict</small>`;
+    $("#cmpGo").disabled = cmp.ids.length < 2;
+    $("#cmpGo").style.opacity = cmp.ids.length < 2 ? ".5" : "1";
+  }
+  function openModal(html, narrow) { $("#modalBody").innerHTML = html; $("#modal .box").classList.toggle("narrow", !!narrow); $("#modal").classList.add("show"); document.body.style.overflow = "hidden"; }
+  function closeModal() { $("#modal").classList.remove("show"); document.body.style.overflow = ""; }
+  function openCompare() {
+    const cfg = cmp.cfg, st = cmp.st;
+    if (!cfg) return;
+    const its = cmp.ids.map((id) => cmp.pool[id]).filter(Boolean);
+    if (its.length < 2) { toast("Sélectionnez au moins 2 offres", "info"); return; }
+    const costOf = cfg.cost ? (x) => cfg.cost(x, st) : cfg.price;
+    const best = its.reduce((a, b) => (b._s > a._s ? b : a));
+    const cheap = its.reduce((a, b) => (costOf(b) < costOf(a) ? b : a));
+    const dear = its.reduce((a, b) => (costOf(b) > costOf(a) ? b : a));
+    const saving = costOf(dear) - costOf(cheap);
+    const perf = cfg.perf ? its.reduce((a, b) => (cfg.perf.get(b) > cfg.perf.get(a) ? b : a)) : null;
+    const nm = (it) => esc(cfg.label ? cfg.label(it) : it.name);
+    let rows = "";
+    cfg.compare.forEach((r) => {
+      if (!Array.isArray(r)) { rows += `<tr class="grp"><td colspan="${its.length + 1}">${esc(r.g)}</td></tr>`; return; }
+      const [label, get, better, bars] = r;
+      const vals = its.map((it) => { const v = get(it, st); return v !== null && typeof v === "object" ? v : { t: esc(v), n: null }; });
+      const same = vals.every((v) => v.t === vals[0].t);
+      let wins = [];
+      if (better && !same) { const nums = vals.map((v) => v.n); const tgt = better === "min" ? Math.min(...nums) : Math.max(...nums); wins = nums.map((n, i) => (n === tgt ? i : -1)).filter((i) => i >= 0); }
+      const mx = Math.max(...vals.map((v) => Math.abs(v.n || 0))) || 1;
+      rows += `<tr class="${same ? "same" : ""}"><td>${esc(label)}</td>${vals.map((v, i) => `<td class="${wins.includes(i) ? "win" : ""}">${v.t}${better && bars !== false && v.n != null ? `<div class="mb"><i style="width:${Math.max(4, (Math.abs(v.n) / mx) * 100)}%"></i></div>` : ""}</td>`).join("")}</tr>`;
+    });
+    const head = its.map((it) => `<th><div class="colhead"><div class="crown">${it === best ? icon("crown") : ""}</div>${badgeOf(it)}<b>${nm(it)}</b><small>${esc(cfg.sublabel ? cfg.sublabel(it) : it.p)}</small><div class="sc">Score <b>${it._s.toFixed(1)}</b></div></div></th>`).join("");
+    const ctas = `<tr><td></td>${its.map((it) => `<td><a class="btn btn-primary btn-sm" target="_blank" rel="noopener nofollow sponsored" href="${esc(cfg.url(it, st))}">${esc(cfg.cta || "Voir l'offre")}</a></td>`).join("")}</tr>`;
+    openModal(`<div class="mpad">
+      <div class="cmp-head"><div><h2>Comparatif ${esc(cfg.cmpTitle)}</h2><p>${its.length} offres analysées selon vos priorités</p></div>
+        <div class="cmp-actions"><label class="switch" style="gap:10px"><span>Différences uniquement</span><input type="checkbox" id="diffOnly"></label>
+        <button type="button" class="btn btn-ghost btn-sm" id="cmpShare">${icon("share")}Partager</button><button type="button" class="btn btn-ghost btn-sm" id="cmpPrint">${icon("printer")}Imprimer</button></div></div>
+      <div class="verdict">
+        <div class="vcard win"><small>${icon("crown")}Meilleur choix pour vous</small><b>${nm(best)}</b><span>Score ${best._s.toFixed(1)}/10 · ${Math.round(best._m * 100)} % de correspondance</span></div>
+        <div class="vcard cheap"><small>${icon("tag")}Le plus économique</small><b>${nm(cheap)}</b><span>${saving > 0 ? `Économie de <b>${tnd(saving)}</b> ${esc(cfg.costLabel || "")} face à ${nm(dear)}` : "Prix équivalents"}</span></div>
+        ${perf ? `<div class="vcard perf"><small>${icon(cfg.perf.icon || "zap")}${esc(cfg.perf.label)}</small><b>${nm(perf)}</b><span>${cfg.perf.text(perf)}</span></div>` : ""}
+      </div>
+      <div class="ctable-wrap"><table class="cmp" id="cmpTable"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}${ctas}</tbody></table></div>
+      <p class="muted" style="font-size:12.5px;margin:12px 0 0">Cellules vertes = meilleure valeur sur la ligne. Tarifs indicatifs, à confirmer chez le fournisseur.</p></div>`);
+    $("#diffOnly").addEventListener("change", (e) => $("#cmpTable").classList.toggle("diff", e.target.checked));
+    $("#cmpPrint").addEventListener("click", () => window.print());
+    $("#cmpShare").addEventListener("click", () => {
+      const p = new URLSearchParams(cmp.params); p.set("cmp", cmp.ids.join(","));
+      const url = location.href.split("#")[0] + "#/" + cmp.path + "?" + p.toString();
+      history.replaceState(null, "", url);
+      const done = () => toast("Lien du comparatif copié", "share");
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt("Copiez ce lien :", url)); else prompt("Copiez ce lien :", url);
     });
   }
-  const emptyBox = (msg) => `<div class="empty"><b>Aucune offre ne correspond</b>${esc(msg || "Essayez d'élargir vos filtres.")}</div>`;
+
+  /* =========================================================
+     MOTEUR DE PAGE DE RÉSULTATS
+     cfg: key, icon, title, sub, crumb, items, filters, sorts, criteria, presets,
+          price, cost, costLabel, perf, card, side, details, media, ribbons, url, cta, fav, compare, label, sublabel
+     ========================================================= */
+  const WL = ["Ignoré", "Faible", "Modéré", "Important", "Très important", "Essentiel"];
+  function listPage(cfg, params, path) {
+    const items = cfg.items, pool = {};
+    items.forEach((it) => (pool[it.id] = it));
+    const defW = Object.fromEntries(cfg.criteria.map((c) => [c.k, c.def]));
+    const st = { f: {}, sort: cfg.sorts[0][0], shown: 10, weights: Object.assign({}, defW, LS.get("qarin-w-" + cfg.key, {})) };
+    cfg.filters.forEach((fd) => (fd.opts = (fd.options || []).map((o) => (Array.isArray(o) ? [String(o[0]), o[1]] : [String(o), o]))));
+    const isSet = (fd) => fd.type === "checks" || fd.type === "musthave";
+    const defOf = (fd) => (fd.type === "checks" ? new Set(fd.opts.map((o) => o[0])) : fd.type === "musthave" ? new Set() : fd.type === "range" ? (fd.mode === "min" ? fd.min : fd.max) : fd.type === "select" ? String(fd.def) : false);
+    cfg.filters.forEach((fd) => { st.f[fd.key] = fd.init != null ? (isSet(fd) ? new Set([...fd.init].map(String)) : fd.type === "select" ? String(fd.init) : fd.init) : defOf(fd); });
+    const isDef = (fd) => { const v = st.f[fd.key], d = defOf(fd); return v instanceof Set ? v.size === d.size && [...v].every((x) => d.has(x)) : v === d; };
+    function passOne(fd, it) {
+      const v = st.f[fd.key];
+      if (fd.type === "checks") return v.size === fd.opts.length || v.has(String(fd.get(it)));
+      if (fd.type === "musthave") { const have = fd.get(it); return [...v].every((x) => have.includes(x)); }
+      if (fd.type === "range") return fd.mode === "min" ? fd.get(it) >= v : fd.get(it) <= v;
+      if (fd.type === "select") return fd.test(it, v);
+      if (fd.type === "toggle") return !v || fd.test(it);
+      return true;
+    }
+    const pass = (it, except) => cfg.filters.every((fd) => fd.key === except || passOne(fd, it));
+    const norm = cfg.criteria.map((c) => {
+      const vals = items.map((it) => c.get(it)); const mn = Math.min(...vals), mx = Math.max(...vals);
+      return (it) => { if (!(mx > mn)) return 1; const x = (c.get(it) - mn) / (mx - mn); return c.better === "min" ? 1 - x : x; };
+    });
+    function scoreAll() {
+      items.forEach((it) => { let s = 0, w = 0; cfg.criteria.forEach((c, i) => { const wi = +st.weights[c.k] || 0; s += wi * norm[i](it); w += wi; }); it._raw = w ? s / w : 0.5; });
+      // score relatif à la meilleure offre du marché : la meilleure ≈ 9,7/10
+      const top = Math.max(...items.map((it) => it._raw)) || 1;
+      items.forEach((it) => { it._m = it._raw / top; it._s = 4.5 + 5.2 * it._m; });
+    }
+    const saveW = () => LS.set("qarin-w-" + cfg.key, st.weights);
+    const prioSummary = () => { const top = cfg.criteria.filter((c) => st.weights[c.k] > 0).sort((a, b) => st.weights[b.k] - st.weights[a.k]).slice(0, 2).map((c) => c.label.toLowerCase()); return top.length ? "Priorité actuelle : " + top.join(" et ") + " — ajustez pour recalculer le classement" : "Aucune priorité définie"; };
+    const prioOpen = LS.get("qarin-prio-open", false);
+
+    app.innerHTML = pageHead(cfg.icon, cfg.title, cfg.sub, cfg.crumb) + (cfg.searchForm ? `<div class="container">${cfg.searchForm}</div>` : "") + `
+    <div class="container"><div class="layout">
+      <aside class="filters" id="flt" aria-label="Filtres"></aside>
+      <div>
+        ${cfg.top || ""}
+        <div class="prio ${prioOpen ? "open" : ""}" id="prio"><button type="button" data-prio-toggle aria-expanded="${prioOpen}"><span class="ico">${icon("sparkles")}</span><span><b>Score personnalisé — mes priorités</b><small id="prioSum">${prioSummary()}</small></span>${icon("chev", "chev")}</button>
+          <div class="prio-body"><div class="presets">${(cfg.presets || []).map((p, i) => `<button type="button" data-preset="${i}">${esc(p.label)}</button>`).join("")}</div>
+          <div class="weights">${cfg.criteria.map((c) => `<div class="weight"><label for="w-${c.k}">${esc(c.label)}<span data-wl="${c.k}">${WL[st.weights[c.k]]}</span></label><input id="w-${c.k}" type="range" min="0" max="5" step="1" value="${st.weights[c.k]}" data-w="${c.k}"></div>`).join("")}</div></div></div>
+        ${cfg.note === false ? "" : note(cfg.note || NOTE_DEFAULT)}
+        <div class="toolbar"><div class="count" id="cnt" aria-live="polite"></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg">${cfg.sorts.map(([k, l, , ic]) => `<button type="button" data-sort="${k}" class="${k === st.sort ? "active" : ""}">${icon(ic)}${esc(l)}</button>`).join("")}</div><button type="button" class="btn btn-ghost btn-sm toggle-filters" data-open-sheet>${icon("sliders")}Filtres</button></div></div>
+        <div class="chips" id="chips"></div>
+        <div id="res"></div>
+      </div>
+    </div></div><div class="overlay" id="ovl" data-close-sheet></div>`;
+
+    const flt = $("#flt", app);
+    function groupHtml(fd) {
+      const v = st.f[fd.key];
+      if (isSet(fd)) return `<b>${esc(fd.label)}</b>` + fd.opts.map(([val, l]) => `<label class="check" data-v="${esc(val)}"><input type="checkbox" value="${esc(val)}" ${v.has(val) ? "checked" : ""}><span>${fd.render ? fd.render(val, l) : esc(l)}</span><span class="cnt"></span></label>`).join("");
+      if (fd.type === "range") return `<b>${esc(fd.label)} <span class="range-val">${fd.fmt(v)}</span></b><input type="range" min="${fd.min}" max="${fd.max}" step="${fd.step}" value="${v}" aria-label="${esc(fd.label)}">`;
+      if (fd.type === "select") return `<b>${esc(fd.label)}</b><select aria-label="${esc(fd.label)}">${fd.opts.map(([val, l]) => opt(val, l, v)).join("")}</select>`;
+      return `<label class="switch"><span>${esc(fd.label)}</span><input type="checkbox" ${v ? "checked" : ""}></label>`;
+    }
+    function renderFilters() {
+      flt.innerHTML = `<div class="fh"><h3>${icon("sliders")}Filtres</h3><button type="button" class="link-btn" data-reset-all>Tout effacer</button></div>` +
+        cfg.filters.map((fd) => `<div class="fgroup" data-fk="${fd.key}">${groupHtml(fd)}</div>`).join("") +
+        `<div class="sheet-foot"><button type="button" class="btn btn-primary btn-block" data-close-sheet>Afficher <span id="sheetCnt"></span> résultats</button></div>`;
+    }
+    function updateCounts() {
+      cfg.filters.forEach((fd) => {
+        if (!isSet(fd)) return;
+        const base = items.filter((it) => pass(it, fd.key)), g = $(`[data-fk="${fd.key}"]`, flt);
+        $$(".check", g).forEach((lbl) => {
+          const v = lbl.dataset.v, n = base.filter((it) => (fd.type === "checks" ? String(fd.get(it)) === v : fd.get(it).includes(v))).length;
+          $(".cnt", lbl).textContent = n; lbl.classList.toggle("zero", !n);
+        });
+      });
+    }
+    function chipText(fd) {
+      const v = st.f[fd.key], lab = (x) => (fd.opts.find((o) => o[0] === x) || [x, x])[1];
+      if (fd.chip) return fd.chip(v);
+      if (isSet(fd)) return `${fd.label} : ${[...v].map(lab).join(", ") || "aucun"}`;
+      if (fd.type === "range") return `${fd.label} ${fd.fmt(v)}`;
+      if (fd.type === "select") return `${fd.label} : ${lab(v)}`;
+      return fd.label;
+    }
+    function renderChips() {
+      const act = cfg.filters.filter((fd) => !fd.fixed && !isDef(fd));
+      $("#chips", app).innerHTML = act.map((fd) => `<button type="button" class="chip" data-chip="${fd.key}">${esc(chipText(fd))}${icon("x")}</button>`).join("") + (act.length > 1 ? '<button type="button" class="chip clear" data-reset-all>Tout effacer</button>' : "");
+    }
+    function cardShell(it, ctx) {
+      const top = it.id === ctx.best, fav = isFav(cfg.key, it.id), inC = cmp.ids.includes(it.id), m = Math.round(it._m * 100);
+      const rib = (cfg.price(it) === ctx.cheapest ? `<span class="ribbon r-best">${icon("tag")}Prix le plus bas</span>` : "") + (cfg.ribbons ? cfg.ribbons(it, st) : "");
+      return `<article class="offer ${cfg.cardClass || ""} ${top ? "top1" : ""} ${inC ? "selected" : ""}" data-id="${esc(it.id)}">
+        ${cfg.media ? cfg.media(it) : ""}
+        <div class="main">${rib ? `<div class="ribbons">${rib}</div>` : ""}${cfg.card(it, st)}
+          ${cfg.details ? `<button type="button" class="details-toggle" data-details>${icon("chev")}Détails &amp; calcul</button><div class="details" hidden>${cfg.details(it, st)}</div>` : ""}
+        </div>
+        <div class="side">
+          <div><div class="scorebox"><span class="pill">${it._s.toFixed(1)}</span><small>${scoreLabel(it._s)}<br>${m} % pour vous</small></div><div class="matchbar"><i style="width:${m}%"></i></div></div>
+          ${cfg.side(it, st)}
+          <a class="btn btn-primary" target="_blank" rel="noopener nofollow sponsored" href="${esc(cfg.url(it, st))}">${esc(cfg.cta || "Voir l'offre")}${icon("arrow")}</a>
+          <div class="side-actions"><button type="button" class="fav-btn ${fav ? "on" : ""}" data-fav="${esc(it.id)}" aria-pressed="${fav}">${icon("heart")}<span>${fav ? "Sauvé" : "Sauver"}</span></button><button type="button" class="cmp-btn ${inC ? "on" : ""}" data-cmpt="${esc(it.id)}" aria-pressed="${inC}">${icon(inC ? "check" : "scale")}<span>Comparer</span></button></div>
+        </div></article>`;
+    }
+    function render() {
+      scoreAll();
+      const sd = cfg.sorts.find((s) => s[0] === st.sort);
+      const list = items.filter((it) => pass(it)).sort(sd && sd[2] ? (a, b) => sd[2](a, b, st) : (a, b) => b._s - a._s);
+      $("#cnt", app).innerHTML = cfg.countText ? cfg.countText(list.length, st) : `${list.length} ${cfg.unit}`;
+      const sc = $("#sheetCnt", app); if (sc) sc.textContent = list.length;
+      renderChips(); updateCounts();
+      if (!list.length) { $("#res", app).innerHTML = `<div class="empty">${icon("search")}<b>Aucune offre ne correspond</b>Essayez d'élargir vos filtres.<div style="margin-top:14px"><button type="button" class="btn btn-soft btn-sm" data-reset-all>Réinitialiser les filtres</button></div></div>`; return; }
+      const ctx = { cheapest: Math.min(...list.map(cfg.price)), best: list.reduce((a, b) => (b._s > a._s ? b : a), list[0]).id };
+      $("#res", app).innerHTML = list.slice(0, st.shown).map((it) => cardShell(it, ctx)).join("") + (list.length > st.shown ? `<div class="more"><button type="button" class="btn btn-ghost" data-more>Afficher plus d'offres (${list.length - st.shown})</button></div>` : "");
+    }
+    function syncW() {
+      cfg.criteria.forEach((c) => { const r = $(`[data-w="${c.k}"]`, app); if (r) r.value = st.weights[c.k]; const l = $(`[data-wl="${c.k}"]`, app); if (l) l.textContent = WL[st.weights[c.k]]; });
+      $("#prioSum", app).textContent = prioSummary();
+    }
+    const closeSheet = () => { flt.classList.remove("open"); $("#ovl", app).classList.remove("show"); };
+
+    flt.addEventListener("input", (e) => {
+      const g = e.target.closest("[data-fk]"); if (!g) return;
+      const fd = cfg.filters.find((f) => f.key === g.dataset.fk);
+      if (isSet(fd)) st.f[fd.key] = new Set($$("input:checked", g).map((i) => i.value));
+      else if (fd.type === "range") { st.f[fd.key] = +e.target.value; $(".range-val", g).textContent = fd.fmt(st.f[fd.key]); }
+      else if (fd.type === "select") st.f[fd.key] = e.target.value;
+      else st.f[fd.key] = e.target.checked;
+      st.shown = 10; render();
+    });
+    app.addEventListener("input", (e) => {
+      const k = e.target.dataset && e.target.dataset.w; if (!k) return;
+      st.weights[k] = +e.target.value; saveW(); syncW(); $$("[data-preset]", app).forEach((b) => b.classList.remove("active")); render();
+    });
+    app.addEventListener("click", (e) => {
+      const t = e.target.closest("button, [data-close-sheet]"); if (!t || !app.contains(t)) return;
+      const d = t.dataset;
+      if (d.sort) { st.sort = d.sort; $$("[data-sort]", app).forEach((b) => b.classList.toggle("active", b === t)); render(); }
+      else if ("more" in d) { st.shown += 10; render(); }
+      else if ("details" in d) { const box = t.nextElementSibling; box.hidden = !box.hidden; t.classList.toggle("open", !box.hidden); }
+      else if (d.fav) toggleFav(cfg, pool[d.fav], t);
+      else if (d.cmpt) toggleCmp(d.cmpt);
+      else if (d.chip) { const fd = cfg.filters.find((f) => f.key === d.chip); st.f[fd.key] = defOf(fd); renderFilters(); render(); }
+      else if ("resetAll" in d) { cfg.filters.forEach((fd) => { if (!fd.fixed) st.f[fd.key] = defOf(fd); }); renderFilters(); render(); }
+      else if ("prioToggle" in d) { const p = $("#prio", app); p.classList.toggle("open"); t.setAttribute("aria-expanded", p.classList.contains("open")); LS.set("qarin-prio-open", p.classList.contains("open")); }
+      else if (d.preset) { Object.assign(st.weights, cfg.presets[+d.preset].w); saveW(); syncW(); $$("[data-preset]", app).forEach((b) => b.classList.toggle("active", b === t)); render(); }
+      else if ("openSheet" in d) { flt.classList.add("open"); $("#ovl", app).classList.add("show"); }
+      else if ("closeSheet" in d) closeSheet();
+    });
+
+    cmp.cfg = cfg; cmp.pool = pool; cmp.st = st; cmp.params = params; cmp.path = path;
+    renderFilters(); render();
+    const ctl = {
+      st, render,
+      setFilters(o) { Object.entries(o).forEach(([k, v]) => { const fd = cfg.filters.find((f) => f.key === k); if (fd) st.f[k] = isSet(fd) ? new Set(v.map(String)) : v; }); renderFilters(); render(); },
+      setWeights(w) { Object.assign(st.weights, w); saveW(); syncW(); render(); }
+    };
+    if (cfg.after) cfg.after(ctl);
+    const pre = (params.get("cmp") || "").split(",").filter((id) => pool[id]).slice(0, 3);
+    if (pre.length) { cmp.ids = pre; refreshCmpUI(); if (pre.length >= 2) setTimeout(openCompare, 60); }
+    return ctl;
+  }
 
   /* =========================================================
      ACCUEIL
@@ -104,33 +363,40 @@
     document.title = "Qarin.tn — Comparez et économisez en Tunisie | Internet, vols, hôtels, assurances";
     const depOpts = D.airportsTN.map((a) => opt(a.code, `${a.city} (${a.code})`, "TUN")).join("");
     const dstOpts = D.destinations.map((d) => opt(d.code, `${d.city} (${d.code})`, "CDG")).join("");
-    const cityOpts = D.cities.map((c) => opt(c.id, c.name, "hammamet")).join("");
-    const govOpts = D.governorates.map((g) => opt(g, g, "Tunis")).join("");
-    const spotOpts = D.rentalSpots.map((s) => opt(s, s, D.rentalSpots[0])).join("");
-
-    // offres phares calculées
     const fibre = D.internet.filter((o) => o.tech === "Fibre").sort((a, b) => a.price - b.price)[0];
     const fl = genFlights("TUN", "CDG", inDays(30), "eco").sort((a, b) => a.price - b.price)[0];
     const ht = genHotels("djerba", inDays(30), 7).sort((a, b) => a.night - b.night)[0];
     const mob = D.mobile.slice().sort((a, b) => a.price / a.data - b.price / b.data)[0];
+    const live = D.internet.filter((o) => o.tech === "Fibre" && o.down === 100).sort((a, b) => a.price - b.price).slice(0, 3);
+    const lmax = Math.max(...live.map((o) => o.price));
+    const CATS = [
+      ["internet", "wifi", "Internet", "Fibre, VDSL, ADSL, box 4G/5G", "#0ea5e9"], ["mobile", "phone", "Forfaits mobiles", "Ooredoo, Orange, Tunisie Telecom", "#8b5cf6"],
+      ["vols", "plane", "Vols", `${D.destinations.length} destinations, 6 aéroports`, "#e63946"], ["hotels", "hotel", "Hôtels", `${D.cities.length} régions balnéaires & Sahara`, "#f59e0b"],
+      ["assurance-auto", "shield", "Assurance auto", `${D.insurers.length} assureurs comparés`, "#10b981"], ["location-voiture", "key", "Location de voiture", "Aéroports & centres-villes", "#0e7490"]
+    ];
+    const TABS = [["vols", "plane", "Vols"], ["hotels", "hotel", "Hôtels"], ["internet", "wifi", "Internet"], ["mobile", "phone", "Mobile"], ["assurance", "shield", "Assurance"], ["voiture", "key", "Location"]];
 
     app.innerHTML = `
-    <section class="hero"><div class="container">
-      <h1>Comparez tout en Tunisie. <em>Payez moins.</em></h1>
-      <p class="lead">Internet, forfaits mobiles, vols, hôtels, assurance auto et location de voiture : toutes les offres côte à côte, gratuitement et sans inscription.</p>
-      <p class="ar" dir="rtl" lang="ar">قارن كل العروض في تونس ووفّر فلوسك</p>
-      <div class="trust-row"><span>✅ 100 % gratuit</span><span>⚖️ Comparaison neutre</span><span>🔒 Sans inscription</span><span>📍 Pensé pour la Tunisie</span></div>
-    </div></section>
+    <section class="hero"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+      <div class="container grid">
+        <div>
+          <span class="eyebrow"><b>NOUVEAU</b> Score personnalisé & comparatif côte à côte</span>
+          <h1>Comparez tout en Tunisie.<br><em>Payez moins.</em></h1>
+          <p class="lead">Internet, mobile, vols, hôtels, assurance auto et location de voiture : toutes les offres analysées selon <b>vos</b> priorités, gratuitement.</p>
+          <p class="ar" dir="rtl" lang="ar">قارن كل العروض في تونس ووفّر فلوسك</p>
+          <div class="trust-row"><span>${icon("check")}100 % gratuit</span><span>${icon("scale")}Classement neutre</span><span>${icon("lock")}Sans inscription</span><span>${icon("pin")}Pensé pour la Tunisie</span></div>
+        </div>
+        <div class="live" aria-label="Exemple de comparaison">
+          <h3>Fibre 100 Mbps · Tunis <small><span class="pulse"></span>Comparaison en direct</small></h3>
+          <div class="muted" style="color:rgba(255,255,255,.7);font-size:12.5px">Prix mensuel · même débit, prix différents</div>
+          ${live.map((o, i) => `<div class="live-row ${i === 0 ? "win" : ""}">${badge(o.p)}<div><b>${esc(o.p)}</b><div class="bar"><i style="width:${Math.round((o.price / lmax) * 100)}%"></i></div></div><div class="pr">${o.price} DT<small>${i === 0 ? "le moins cher" : "+" + (o.price - live[0].price) + " DT"}</small></div></div>`).join("")}
+          <div class="save">${icon("trend")}Jusqu'à ${tnd((lmax - live[0].price) * 12)} d'économie par an</div>
+        </div>
+      </div>
+    </section>
     <div class="container">
       <div class="searchbox">
-        <div class="tabs" role="tablist">
-          <button class="tab active" data-tab="vols"><span class="ic">✈️</span>Vols</button>
-          <button class="tab" data-tab="hotels"><span class="ic">🏨</span>Hôtels</button>
-          <button class="tab" data-tab="internet"><span class="ic">📶</span>Internet</button>
-          <button class="tab" data-tab="mobile"><span class="ic">📱</span>Mobile</button>
-          <button class="tab" data-tab="assurance"><span class="ic">🚗</span>Assurance auto</button>
-          <button class="tab" data-tab="voiture"><span class="ic">🔑</span>Location voiture</button>
-        </div>
+        <div class="tabs" role="tablist">${TABS.map(([k, ic, l], i) => `<button type="button" class="tab ${i ? "" : "active"}" data-tab="${k}" role="tab">${icon(ic)}${l}</button>`).join("")}</div>
         <div class="search-body">
           <form data-pane="vols" class="form-grid">
             <div class="field"><label>Départ</label><select name="from">${depOpts}</select></div>
@@ -138,95 +404,102 @@
             <div class="field"><label>Aller</label><input type="date" name="date" value="${inDays(21)}" min="${inDays(0)}"></div>
             <div class="field"><label>Retour (option)</label><input type="date" name="ret" value="${inDays(28)}" min="${inDays(0)}"></div>
             <div class="field"><label>Voyageurs</label><select name="pax">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n + (n > 1 ? " adultes" : " adulte"), 1)).join("")}</select></div>
-            <button class="btn btn-primary btn-lg">Rechercher les vols</button>
+            <button class="btn btn-primary btn-lg">${icon("search")}Rechercher</button>
           </form>
           <form data-pane="hotels" class="form-grid" hidden>
-            <div class="field"><label>Destination</label><select name="dest">${cityOpts}</select></div>
+            <div class="field"><label>Destination</label><select name="dest">${D.cities.map((c) => opt(c.id, c.name, "hammamet")).join("")}</select></div>
             <div class="field"><label>Arrivée</label><input type="date" name="in" value="${inDays(30)}" min="${inDays(0)}"></div>
             <div class="field"><label>Départ</label><input type="date" name="out" value="${inDays(37)}" min="${inDays(1)}"></div>
             <div class="field"><label>Adultes</label><select name="ad">${[1, 2, 3, 4].map((n) => opt(n, n, 2)).join("")}</select></div>
-            <button class="btn btn-primary btn-lg">Comparer les hôtels</button>
+            <button class="btn btn-primary btn-lg">${icon("search")}Comparer les hôtels</button>
           </form>
           <form data-pane="internet" class="form-grid" hidden>
-            <div class="field"><label>Votre gouvernorat</label><select name="gov">${govOpts}</select></div>
+            <div class="field"><label>Votre gouvernorat</label><select name="gov">${D.governorates.map((g) => opt(g, g, "Tunis")).join("")}</select></div>
             <div class="field"><label>Technologie</label><select name="tech">${opt("", "Toutes")}${["Fibre", "VDSL", "ADSL", "4G Box", "5G Box"].map((t) => opt(t, t)).join("")}</select></div>
-            <div class="field"><label>Débit minimum</label><select name="min">${[0, 10, 30, 100, 300].map((n) => opt(n, n ? n + " Mbps" : "Peu importe")).join("")}</select></div>
-            <button class="btn btn-primary btn-lg">Comparer Internet</button>
+            <div class="field"><label>Débit minimum</label><select name="min">${[0, 10, 30, 50, 100, 300].map((n) => opt(n, n ? n + " Mbps" : "Peu importe")).join("")}</select></div>
+            <button class="btn btn-primary btn-lg">${icon("search")}Comparer Internet</button>
           </form>
           <form data-pane="mobile" class="form-grid" hidden>
             <div class="field"><label>Data minimum</label><select name="data">${[0, 10, 30, 50, 100].map((n) => opt(n, n ? n + " Go" : "Peu importe")).join("")}</select></div>
             <div class="field"><label>Budget max / mois</label><select name="max">${[20, 35, 50, 70].map((n) => opt(n, n + " DT", 70)).join("")}</select></div>
-            <button class="btn btn-primary btn-lg">Comparer les forfaits</button>
+            <button class="btn btn-primary btn-lg">${icon("search")}Comparer les forfaits</button>
           </form>
           <form data-pane="assurance" class="form-grid" hidden>
             <div class="field"><label>Puissance fiscale</label><select name="cv">${[4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => opt(n, n + " CV", 6)).join("")}</select></div>
             <div class="field"><label>Valeur du véhicule (DT)</label><input type="number" name="val" value="45000" min="5000" step="1000"></div>
             <div class="field"><label>Formule</label><select name="f">${opt("rc", "Responsabilité civile")}${opt("tp", "Tiers + vol/incendie", "tp")}${opt("tr", "Tous risques")}</select></div>
-            <button class="btn btn-primary btn-lg">Calculer mon devis</button>
+            <button class="btn btn-primary btn-lg">${icon("calc")}Calculer mon devis</button>
           </form>
           <form data-pane="voiture" class="form-grid" hidden>
-            <div class="field"><label>Lieu de prise</label><select name="spot">${spotOpts}</select></div>
+            <div class="field"><label>Lieu de prise</label><select name="spot">${D.rentalSpots.map((s) => opt(s, s, D.rentalSpots[0])).join("")}</select></div>
             <div class="field"><label>Prise</label><input type="date" name="start" value="${inDays(14)}" min="${inDays(0)}"></div>
             <div class="field"><label>Retour</label><input type="date" name="end" value="${inDays(21)}" min="${inDays(1)}"></div>
-            <button class="btn btn-primary btn-lg">Comparer les loueurs</button>
+            <button class="btn btn-primary btn-lg">${icon("search")}Comparer les loueurs</button>
           </form>
         </div>
       </div>
 
       <section class="block">
-        <div class="section-title"><h2>Que voulez-vous comparer ?</h2><p>Six comparateurs, une seule adresse.</p></div>
-        <div class="cat-grid">
-          <a class="cat" href="#/internet"><span class="ic">📶</span><b>Internet</b><small>Fibre, VDSL, 4G/5G</small></a>
-          <a class="cat" href="#/mobile"><span class="ic">📱</span><b>Forfaits mobiles</b><small>Ooredoo, Orange, TT</small></a>
-          <a class="cat" href="#/vols"><span class="ic">✈️</span><b>Vols</b><small>${D.destinations.length} destinations</small></a>
-          <a class="cat" href="#/hotels"><span class="ic">🏨</span><b>Hôtels</b><small>${D.cities.length} régions</small></a>
-          <a class="cat" href="#/assurance-auto"><span class="ic">🚗</span><b>Assurance auto</b><small>${D.insurers.length} assureurs</small></a>
-          <a class="cat" href="#/location-voiture"><span class="ic">🔑</span><b>Location voiture</b><small>Aéroports & villes</small></a>
+        <div class="section-title"><span class="kicker">6 comparateurs</span><h2>Que voulez-vous comparer ?</h2><p>Une seule adresse pour toutes vos dépenses du quotidien et du voyage.</p></div>
+        <div class="cat-grid">${CATS.map(([r, ic, t, s, c]) => `<a class="cat" href="#/${r}"><span class="ico" style="background:${c}1f;color:${c}">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span>${icon("arrow", "go")}</a>`).join("")}</div>
+      </section>
+
+      <section class="block" style="padding-top:0">
+        <div class="section-title"><span class="kicker">Comparaison avancée</span><h2>Bien plus qu'une liste de prix</h2><p>Des outils pour décider vite, et bien.</p></div>
+        <div class="features">
+          <div class="feature"><div class="ico">${icon("sparkles")}</div><h3>Score personnalisé</h3><p>Réglez l'importance du prix, du débit, de la flexibilité… le classement se recalcule instantanément.</p></div>
+          <div class="feature"><div class="ico">${icon("scale")}</div><h3>Comparatif côte à côte</h3><p>Jusqu'à 3 offres, meilleure valeur surlignée, verdict et économie chiffrée. Partageable et imprimable.</p></div>
+          <div class="feature"><div class="ico">${icon("bulb")}</div><h3>Assistant débit idéal</h3><p>3 questions sur votre foyer et vos usages : on calcule le débit qu'il vous faut vraiment.</p></div>
+          <div class="feature"><div class="ico">${icon("chart")}</div><h3>Calendrier des prix</h3><p>Visualisez les prix des vols jour par jour et partez au meilleur moment.</p></div>
         </div>
       </section>
 
       <section class="block" style="padding-top:0">
-        <div class="section-title"><h2>Les bons plans du moment</h2><p>Calculés automatiquement à partir de nos comparateurs.</p></div>
+        <div class="section-title"><span class="kicker">Mis à jour en continu</span><h2>Les bons plans du moment</h2><p>Calculés automatiquement à partir de nos comparateurs.</p></div>
         <div class="deals">
-          ${dealCard("linear-gradient(135deg,#0a5c8a,#14b8a6)", "✈️ Vol aller", "Tunis → Paris", fl.price, "/ pers.", "#/vols?from=TUN&to=CDG&date=" + inDays(30))}
-          ${dealCard("linear-gradient(135deg,#06b6d4,#3b82f6)", "🏨 Hôtel " + ht.stars + "★ · " + ht.board, "Djerba", ht.night, "/ nuit / pers.", "#/hotels?dest=djerba")}
-          ${dealCard("linear-gradient(135deg,#7c3aed,#0ea5e9)", "📶 Fibre la moins chère · " + fibre.p, fibre.name, fibre.price, "/ mois", "#/internet?tech=Fibre")}
-          ${dealCard("linear-gradient(135deg,#0f9d58,#84cc16)", "📱 Meilleur prix par Go · " + mob.p, mob.name + " · " + mob.data + " Go", mob.price, "/ mois", "#/mobile")}
+          ${dealCard("linear-gradient(135deg,#0a5c8a,#14b8a6)", "plane", "Vol aller · Tunis → Paris", fl.p, fl.price, "/ pers.", "#/vols?from=TUN&to=CDG&date=" + inDays(30))}
+          ${dealCard("linear-gradient(135deg,#0891b2,#6366f1)", "hotel", `Djerba · ${ht.stars}★ · ${ht.board}`, ht.name, ht.night, "/ nuit", "#/hotels?dest=djerba")}
+          ${dealCard("linear-gradient(135deg,#7c3aed,#db2777)", "wifi", "Fibre la moins chère", `${fibre.p} · ${fibre.down} Mbps`, fibre.price, "/ mois", "#/internet?tech=Fibre")}
+          ${dealCard("linear-gradient(135deg,#059669,#65a30d)", "phone", "Meilleur prix au Go", `${mob.p} · ${mob.data} Go`, mob.price, "/ mois", "#/mobile")}
         </div>
       </section>
 
       <section class="block" style="padding-top:0">
-        <div class="section-title"><h2>Comment ça marche ?</h2><p>Trouver la meilleure offre en moins de 2 minutes.</p></div>
+        <div class="section-title"><span class="kicker">Simple</span><h2>Comment ça marche ?</h2><p>La meilleure offre en moins de 2 minutes.</p></div>
         <div class="steps">
-          <div class="step"><div class="num">1</div><h3>Indiquez votre besoin</h3><p>Destination, débit souhaité, véhicule… quelques champs suffisent.</p></div>
-          <div class="step"><div class="num">2</div><h3>Comparez en un clin d'œil</h3><p>Filtres, tri par prix ou par score qualité/prix, et comparatif côte à côte jusqu'à 3 offres.</p></div>
-          <div class="step"><div class="num">3</div><h3>Souscrivez chez le fournisseur</h3><p>Un clic vous mène directement à l'offre. Aucun frais supplémentaire de notre part.</p></div>
+          <div class="step"><div class="num">1</div><h3>Indiquez votre besoin</h3><p>Destination, gouvernorat, véhicule… quelques champs suffisent.</p></div>
+          <div class="step"><div class="num">2</div><h3>Comparez selon vos priorités</h3><p>Filtres intelligents, score personnalisé, comparatif détaillé jusqu'à 3 offres.</p></div>
+          <div class="step"><div class="num">3</div><h3>Souscrivez directement</h3><p>Un clic vous mène à l'offre chez le fournisseur. Aucun frais de notre part.</p></div>
         </div>
       </section>
 
       <section class="block" style="padding-top:0">
         <div class="stats">
-          <div><b>${D.internet.length + D.mobile.length}</b><span>offres télécom comparées</span></div>
-          <div><b>${D.destinations.length * D.airportsTN.length}</b><span>liaisons aériennes</span></div>
-          <div><b>${D.insurers.length}</b><span>assureurs auto</span></div>
-          <div><b>0 DT</b><span>c'est le prix du service</span></div>
+          <div><b data-count="${D.internet.length + D.mobile.length}">0</b><span>offres télécom</span></div>
+          <div><b data-count="${D.destinations.length * D.airportsTN.length}">0</b><span>liaisons aériennes</span></div>
+          <div><b data-count="${D.insurers.length + D.rentals.length}">0</b><span>assureurs & loueurs</span></div>
+          <div><b>0 DT</b><span>le prix du service</span></div>
         </div>
       </section>
 
       <section class="block" style="padding-top:0">
-        <div class="section-title"><h2>Questions fréquentes</h2></div>
+        <div class="section-title"><span class="kicker">FAQ</span><h2>Questions fréquentes</h2></div>
         <div class="faq">
-          <details><summary>Qarin.tn est-il vraiment gratuit ?</summary><p>Oui. La comparaison est gratuite et sans inscription. Le site peut être rémunéré par certains partenaires lorsque vous souscrivez via un lien, sans aucun surcoût pour vous et sans influence sur le classement.</p></details>
-          <details><summary>Comment est calculé le score qualité/prix ?</summary><p>Pour Internet, le score combine le débit (descendant et montant), le prix mensuel et les frais d'installation. Pour les forfaits mobiles, il met en rapport le volume de data, les appels et le prix. Le score est recalculé pour chaque recherche.</p></details>
-          <details><summary>Les prix sont-ils garantis ?</summary><p>Non : les prix affichés sont indicatifs. Ils sont estimés à partir des grilles tarifaires publiques et des tendances de saison. Le prix définitif est toujours celui affiché par le fournisseur au moment de la souscription ou de la réservation.</p></details>
-          <details><summary>La fibre est-elle disponible chez moi ?</summary><p>Choisissez votre gouvernorat dans le comparateur Internet : nous n'affichons que les technologies généralement disponibles dans votre zone. L'éligibilité exacte à votre adresse se vérifie chez l'opérateur.</p></details>
-          <details><summary>Puis-je comparer des offres côte à côte ?</summary><p>Oui, cochez « Comparer » sur 2 ou 3 offres (Internet, mobile, assurance) puis cliquez sur le bouton en bas de l'écran.</p></details>
+          ${faq("Qarin.tn est-il vraiment gratuit ?", "Oui. La comparaison est gratuite et sans inscription. Le site peut être rémunéré par certains partenaires lorsque vous souscrivez via un lien, sans surcoût pour vous et sans influence sur le classement.")}
+          ${faq("Comment fonctionne le score personnalisé ?", "Chaque offre est notée sur plusieurs critères (prix, performance, flexibilité, service…). Vous choisissez l'importance de chaque critère avec les curseurs « Mes priorités » : le score sur 10 et le pourcentage de correspondance sont recalculés immédiatement.")}
+          ${faq("Comment comparer des offres côte à côte ?", "Cliquez sur « Comparer » sur 2 ou 3 offres, puis sur le bouton en bas de l'écran. Vous obtenez un tableau détaillé, la meilleure valeur surlignée, un verdict et l'économie réalisable. Le comparatif peut être partagé par lien ou imprimé.")}
+          ${faq("Les prix sont-ils garantis ?", "Non : les prix affichés sont indicatifs, estimés à partir des grilles tarifaires publiques et des tendances de saison. Le prix définitif est celui affiché par le fournisseur au moment de la souscription.")}
+          ${faq("La fibre est-elle disponible chez moi ?", "Choisissez votre gouvernorat dans le comparateur Internet : seules les technologies généralement disponibles dans votre zone sont affichées. L'éligibilité exacte à votre adresse se vérifie chez l'opérateur.")}
         </div>
+      </section>
+
+      <section class="block" style="padding-top:0">
+        <div class="cta-band"><div><h2>Pas sûr du débit qu'il vous faut ?</h2><p>Notre assistant le calcule en 3 questions et filtre les offres pour vous.</p></div><a class="btn btn-primary btn-lg" href="#/internet?assist=1">${icon("sparkles")}Lancer l'assistant</a></div>
       </section>
     </div>`;
 
     $$(".tab", app).forEach((t) => t.addEventListener("click", () => {
-      $$(".tab", app).forEach((x) => x.classList.toggle("active", x === t));
+      $$(".tab", app).forEach((x) => { x.classList.toggle("active", x === t); x.setAttribute("aria-selected", x === t); });
       $$("[data-pane]", app).forEach((p) => (p.hidden = p.dataset.pane !== t.dataset.tab));
     }));
     const target = { vols: "vols", hotels: "hotels", internet: "internet", mobile: "mobile", assurance: "assurance-auto", voiture: "location-voiture" };
@@ -236,145 +509,150 @@
       Object.keys(p).forEach((k) => p[k] === "" && delete p[k]);
       go(target[f.dataset.pane], p);
     }));
+    $$("[data-count]", app).forEach((el) => {
+      const end = +el.dataset.count, t0 = performance.now();
+      const step = (t) => { const k = Math.min(1, (t - t0) / 1200); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    });
   }
-  function dealCard(bg, small, title, price, unit, href) {
-    return `<div class="deal"><div class="top" style="background:${bg}"><small>${esc(small)}</small><b>${esc(title)}</b></div><div class="bot"><div class="price"><small>dès</small> ${tnd(price)} <small>${unit}</small></div><a class="btn btn-ghost" href="${href}">Voir</a></div></div>`;
+  const faq = (q, a) => `<details><summary>${esc(q)}${icon("chev")}</summary><p>${esc(a)}</p></details>`;
+  function dealCard(bg, ic, small, title, price, unit, href) {
+    return `<a class="deal" href="${href}"><div class="top" style="background:${bg}"><small>${icon(ic)}${esc(small)}</small><b>${esc(title)}</b></div><div class="bot"><div class="price"><small>dès</small> ${tnd(price)} <small>${unit}</small></div><span class="go">${icon("arrow")}</span></div></a>`;
   }
 
   /* =========================================================
      INTERNET
      ========================================================= */
-  function internetPage(params) {
+  function internetPage(params, path) {
     document.title = "Comparateur Internet Tunisie — Fibre, VDSL, ADSL, 4G/5G | Qarin.tn";
-    const TECHS = ["Fibre", "VDSL", "ADSL", "4G Box", "5G Box"];
-    const PROVS = [...new Set(D.internet.map((o) => o.p))];
-    const all = D.internet.map((o, i) => ({ ...o, id: "net" + i }));
-    // score qualité/prix normalisé 6.0 → 9.7
-    const raw = all.map((o) => (Math.sqrt(o.down) * 6 + Math.log2(o.up + 1) * 3) / (o.price + o.setup / 12));
-    const mn = Math.min(...raw), mx = Math.max(...raw);
-    all.forEach((o, i) => (o.score = 6 + ((raw[i] - mn) / (mx - mn)) * 3.7));
-    const st = {
-      gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis",
-      techs: new Set(params.get("tech") && TECHS.includes(params.get("tech")) ? [params.get("tech")] : TECHS),
-      provs: new Set(PROVS), min: +params.get("min") || 0, max: 250, noEng: false, sort: "score"
+    const TECHS = ["Fibre", "VDSL", "ADSL", "4G Box", "5G Box"], PROVS = [...new Set(D.internet.map((o) => o.p))];
+    const avail = (o, g) => (o.tech === "Fibre" ? D.fiberGov.includes(g) : o.tech === "5G Box" ? D.g5Gov.includes(g) : true);
+    const H = (st) => +st.f.h;
+    const total = (o, st) => o.price * H(st) + o.setup;
+    const lp = (v) => (Math.log10(v) / 3) * 100;
+    const tech = params.get("tech");
+    const ctl = listPage({
+      key: "internet", icon: "wifi", title: "Comparateur Internet", crumb: "Internet", cmpTitle: "Internet",
+      sub: "Fibre, VDSL, ADSL et box 4G/5G de tous les fournisseurs tunisiens, classés selon vos priorités.",
+      items: D.internet.map((o, i) => ({ ...o, id: "net" + i })),
+      countText: (n, st) => `${n} offres <small>disponibles à ${esc(st.f.gov)}</small>`,
+      price: (o) => o.price, cost: total, costLabel: "sur la durée choisie",
+      perf: { label: "Le plus rapide", icon: "zap", get: (o) => o.down, text: (o) => `${spd(o.down)} ↓ · ${o.up} Mbps ↑` },
+      criteria: [
+        { k: "price", label: "Prix", get: (o) => o.price + o.setup / 24, better: "min", def: 4 },
+        { k: "speed", label: "Débit", get: (o) => Math.sqrt(o.down), better: "max", def: 3 },
+        { k: "up", label: "Envoi (upload)", get: (o) => Math.log2(o.up + 1), better: "max", def: 1 },
+        { k: "flex", label: "Sans engagement", get: (o) => o.eng, better: "min", def: 2 }
+      ],
+      presets: [{ label: "Équilibré", w: { price: 4, speed: 3, up: 1, flex: 2 } }, { label: "Petit budget", w: { price: 5, speed: 1, up: 0, flex: 2 } }, { label: "Performance", w: { price: 1, speed: 5, up: 3, flex: 0 } }, { label: "Télétravail", w: { price: 2, speed: 3, up: 5, flex: 1 } }, { label: "Flexibilité", w: { price: 3, speed: 2, up: 0, flex: 5 } }],
+      filters: [
+        { key: "gov", type: "select", label: "Gouvernorat", options: D.governorates.map((g) => [g, g]), def: "Tunis", init: D.governorates.includes(params.get("gov")) ? params.get("gov") : null, test: (o, v) => avail(o, v), fixed: true },
+        { key: "tech", type: "checks", label: "Technologie", options: TECHS, get: (o) => o.tech, init: TECHS.includes(tech) ? [tech] : null },
+        { key: "min", type: "select", label: "Débit minimum", options: [[0, "Peu importe"], [10, "10 Mbps"], [30, "30 Mbps"], [50, "50 Mbps"], [100, "100 Mbps"], [300, "300 Mbps"], [500, "500 Mbps"]], def: "0", init: params.get("min") || null, test: (o, v) => o.down >= +v, chip: (v) => `Débit ≥ ${spd(+v)}` },
+        { key: "max", type: "range", label: "Prix max", min: 30, max: 250, step: 5, mode: "max", get: (o) => o.price, fmt: (v) => v + " DT" },
+        { key: "noeng", type: "toggle", label: "Sans engagement", test: (o) => !o.eng },
+        { key: "nosetup", type: "toggle", label: "Installation offerte", test: (o) => !o.setup },
+        { key: "prov", type: "checks", label: "Fournisseurs", options: PROVS, get: (o) => o.p },
+        { key: "h", type: "select", label: "Coût total calculé sur", options: [["12", "12 mois"], ["24", "24 mois"], ["36", "36 mois"]], def: "24", test: () => true, fixed: true }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.price - b.price, "tag"], ["speed", "Débit", (a, b) => b.down - a.down, "zap"], ["total", "Coût total", (a, b, st) => total(a, st) - total(b, st), "calc"]],
+      ribbons: (o) => (o.promo ? `<span class="ribbon r-hot">${icon("fire")}Promo</span>` : "") + (!o.eng ? `<span class="ribbon r-info">${icon("unlock")}Sans engagement</span>` : ""),
+      card: (o, st) => `<div class="head">${badge(o.p)}<div><h3>${esc(o.name)}</h3><small>${esc(o.p)}</small> <span class="tech">${o.tech}</span></div></div>
+        <div class="meters">${meter("Réception", lp(o.down), spd(o.down))}${meter("Envoi", lp(o.up), o.up + " Mbps")}</div>
+        <div class="specs">${spec("Installation", o.setup ? tnd(o.setup) : "Offerte")}${spec("Engagement", o.eng ? o.eng + " mois" : "Aucun")}${spec("Coût " + H(st) + " mois", tnd(total(o, st)))}${spec("Prix / Mbps", (o.price / o.down).toFixed(2).replace(".", ",") + " DT")}</div>${feats(o.feats)}`,
+      details: (o, st) => `<table><tr><td>Abonnement ${H(st)} mois × ${tnd(o.price)}</td><td>${tnd(o.price * H(st))}</td></tr><tr><td>Frais d'installation</td><td>${o.setup ? tnd(o.setup) : "Offerts"}</td></tr><tr class="total"><td>Coût total sur ${H(st)} mois</td><td>${tnd(total(o, st))}</td></tr><tr><td>Équivalent mensuel réel</td><td>${(total(o, st) / H(st)).toFixed(1).replace(".", ",")} DT</td></tr><tr><td>${icon("clock")} Télécharger un film HD (5 Go)</td><td>≈ ${secs((5 * 8000) / o.down)}</td></tr><tr><td>${icon("clock")} Envoyer 1 Go de fichiers</td><td>≈ ${secs(8000 / o.up)}</td></tr></table>`,
+      side: (o, st) => `<div><div class="price-big">${nf.format(o.price)}<sup>DT/mois</sup></div><div class="price-sub"><b>${tnd(total(o, st))}</b> sur ${H(st)} mois</div></div>`,
+      url: (o) => purl(o.p), fav: (o) => ({ title: o.name, sub: `${o.p} · ${o.tech}`, price: o.price + " DT/mois" }),
+      compare: [
+        { g: "Prix" },
+        ["Prix mensuel", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Installation", (o) => ({ n: o.setup, t: o.setup ? tnd(o.setup) : "Offerte" }), "min"],
+        ["Coût total", (o, st) => ({ n: total(o, st), t: `${tnd(total(o, st))} <small class="muted">/${H(st)} mois</small>` }), "min"], ["Prix par Mbps", (o) => ({ n: +(o.price / o.down).toFixed(2), t: (o.price / o.down).toFixed(2).replace(".", ",") + " DT" }), "min"],
+        { g: "Performance" },
+        ["Réception", (o) => ({ n: o.down, t: spd(o.down) }), "max"], ["Envoi", (o) => ({ n: o.up, t: o.up + " Mbps" }), "max"],
+        ["Film HD 5 Go", (o) => ({ n: (5 * 8000) / o.down, t: secs((5 * 8000) / o.down) }), "min", false], ["Technologie", (o) => o.tech],
+        { g: "Contrat" },
+        ["Engagement", (o) => ({ n: o.eng, t: o.eng ? o.eng + " mois" : "Aucun" }), "min", false], ["Inclus", (o) => o.feats.join(" · ")]
+      ],
+      top: `<div class="assist"><div><b>${icon("bulb")}Quel débit vous faut-il vraiment ?</b><small id="assistTxt">Répondez à 3 questions, on calcule et on filtre pour vous.</small></div><button type="button" class="btn btn-brand btn-sm" data-wizard>${icon("sparkles")}Lancer l'assistant</button></div>`,
+      after: (c) => { $("[data-wizard]", app).addEventListener("click", () => wizard(c)); if (params.get("assist")) setTimeout(() => wizard(c), 200); }
+    }, params, path);
+    return ctl;
+  }
+  function wizard(ctl) {
+    const U = [["web", "Web & réseaux sociaux", 3], ["hd", "Streaming HD", 8], ["uhd", "Streaming 4K", 25], ["game", "Jeux en ligne", 15], ["work", "Télétravail & visio", 8], ["dl", "Gros téléchargements", 40]];
+    openModal(`<div class="mpad wiz"><h2>${icon("sparkles")} Assistant débit idéal</h2><p class="muted" style="margin:0">On estime le débit nécessaire pour votre foyer.</p>
+      <form id="wz">
+        <div class="q">1. Combien de personnes utilisent Internet ?</div>
+        <div class="opts">${[[1, "Seul(e)"], [2, "2 – 3"], [4, "4 – 5"], [6, "6 et plus"]].map(([v, l], i) => `<label class="opt"><input type="radio" name="n" value="${v}" ${i === 1 ? "checked" : ""}><span>${icon("users")}${l}</span></label>`).join("")}</div>
+        <div class="q">2. Quels usages ? <small class="muted">(plusieurs choix)</small></div>
+        <div class="opts">${U.map(([k, l, m], i) => `<label class="opt"><input type="checkbox" name="u" value="${k}" ${i < 2 ? "checked" : ""}><span>${l}<small>~${m} Mbps / pers.</small></span></label>`).join("")}</div>
+        <div class="q">3. Avez-vous (ou pouvez-vous avoir) une ligne fixe ?</div>
+        <div class="opts"><label class="opt"><input type="radio" name="l" value="1" checked><span>Oui<small>Fibre, VDSL ou ADSL</small></span></label><label class="opt"><input type="radio" name="l" value="0"><span>Non<small>Box 4G / 5G sans ligne</small></span></label></div>
+        <div class="wiz-result"><div><small>Débit recommandé</small><b id="wzOut">—</b><small id="wzWhy"></small></div><button type="submit" class="btn btn-primary">${icon("check")}Appliquer</button></div>
+      </form></div>`, true);
+    const f = $("#wz"), TIERS = [10, 30, 50, 100, 300, 500];
+    const calc = () => {
+      const n = +f.n.value, us = $$("input[name=u]:checked", f).map((i) => i.value);
+      const per = U.filter((u) => us.includes(u[0])).reduce((s, u) => s + u[2], 0) || 3;
+      const need = Math.round(per * n * (n > 1 ? 0.75 : 1) + 5);
+      const tier = TIERS.find((t) => t >= need) || 500;
+      $("#wzOut").textContent = "≥ " + tier + " Mbps";
+      $("#wzWhy").textContent = `Besoin estimé ≈ ${need} Mbps en usage simultané`;
+      return { tier, us, line: f.l.value === "1" };
     };
-    cmpSetup("internet", "Internet", [
-      ["Technologie", (o) => o.tech], ["Débit descendant", (o) => ({ n: o.down, t: o.down + " Mbps" }), "max"], ["Débit montant", (o) => ({ n: o.up, t: o.up + " Mbps" }), "max"],
-      ["Prix mensuel", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Frais d'installation", (o) => ({ n: o.setup, t: o.setup ? tnd(o.setup) : "Offerts" }), "min"],
-      ["Coût sur 12 mois", (o) => ({ n: o.price * 12 + o.setup, t: tnd(o.price * 12 + o.setup) }), "min"], ["Engagement", (o) => (o.eng ? o.eng + " mois" : "Sans")],
-      ["Score Qarin", (o) => ({ n: +o.score.toFixed(1), t: o.score.toFixed(1) + " / 10" }), "max"], ["Inclus", (o) => o.feats.join(" · ")]
-    ]);
-    cmpPool(all);
-    const avail = (o) => (o.tech === "Fibre" ? D.fiberGov.includes(st.gov) : o.tech === "5G Box" ? D.g5Gov.includes(st.gov) : true);
-
-    app.innerHTML = pageHead("📶", "Comparateur Internet", "Fibre, VDSL, ADSL et box 4G/5G de tous les fournisseurs tunisiens.", "Internet") + `
-    <div class="container"><div class="layout">
-      <aside class="filters"><form>
-        <h3>Filtres <button type="button" data-reset>Réinitialiser</button></h3>
-        <div class="fgroup"><b>Gouvernorat</b><select name="gov">${D.governorates.map((g) => opt(g, g, st.gov)).join("")}</select></div>
-        <div class="fgroup"><b>Technologie</b>${checks("tech", TECHS, st.techs)}</div>
-        <div class="fgroup"><b>Débit min.</b><select name="min">${[0, 10, 30, 50, 100, 300, 500].map((n) => opt(n, n ? n + " Mbps" : "Peu importe", st.min)).join("")}</select></div>
-        <div class="fgroup"><b>Prix max : <span class="range-val" id="maxv">${st.max} DT</span></b><input type="range" name="max" min="30" max="250" step="5" value="${st.max}"></div>
-        <div class="fgroup"><label class="check"><input type="checkbox" name="noeng"> Sans engagement uniquement</label></div>
-        <div class="fgroup"><b>Fournisseurs</b>${checks("prov", PROVS, st.provs)}</div>
-      </form></aside>
-      <div>
-        ${DISCLAIMER}
-        <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["score", "⭐ Meilleur score"], ["price", "Prix"], ["speed", "Débit"], ["year", "Coût 12 mois"]], st.sort)}<button class="btn btn-ghost toggle-filters">⚙️ Filtres</button></div>
-        <div id="res"></div>
-      </div>
-    </div></div>`;
-
-    const read = (f) => {
-      st.gov = f.gov.value; st.techs = readChecks(f, "tech"); st.provs = readChecks(f, "prov");
-      st.min = +f.min.value; st.max = +f.max.value; st.noEng = f.noeng.checked; $("#maxv").textContent = st.max + " DT";
-    };
-    const render = () => {
-      let list = all.filter((o) => avail(o) && st.techs.has(o.tech) && st.provs.has(o.p) && o.down >= st.min && o.price <= st.max && (!st.noEng || !o.eng));
-      const sorters = { score: (a, b) => b.score - a.score, price: (a, b) => a.price - b.price, speed: (a, b) => b.down - a.down, year: (a, b) => a.price * 12 + a.setup - (b.price * 12 + b.setup) };
-      list.sort(sorters[st.sort]);
-      const unavailable = all.filter((o) => !avail(o)).length;
-      $("#cnt").innerHTML = `${list.length} offres <small>à ${esc(st.gov)}${unavailable ? ` · ${unavailable} non disponibles dans votre zone` : ""}</small>`;
-      if (!list.length) { $("#res").innerHTML = emptyBox(); return; }
-      const cheapest = Math.min(...list.map((o) => o.price)), best = Math.max(...list.map((o) => o.score));
-      $("#res").innerHTML = list.map((o, i) => `
-        <article class="offer fade-in ${i === 0 && st.sort === "score" ? "top1" : ""}">
-          <div class="main">
-            <div class="ribbons">${o.score === best ? '<span class="ribbon r-ok">🏆 Meilleur rapport qualité/prix</span>' : ""}${o.price === cheapest ? '<span class="ribbon r-best">💰 Prix le plus bas</span>' : ""}${o.promo ? '<span class="ribbon r-hot">🔥 Promo</span>' : ""}${!o.eng ? '<span class="ribbon r-info">Sans engagement</span>' : ""}</div>
-            <div class="head">${badge(o.p)}<div><h3>${esc(o.name)}</h3><small>${esc(o.p)}</small> <span class="tech">${o.tech}</span></div><div style="margin-left:auto">${scoreHtml(o.score)}</div></div>
-            <div class="specs">
-              <div class="spec"><small>Descendant</small><b>${o.down >= 1000 ? o.down / 1000 + " Gbps" : o.down + " Mbps"}</b></div>
-              <div class="spec"><small>Montant</small><b>${o.up} Mbps</b></div>
-              <div class="spec"><small>Installation</small><b>${o.setup ? tnd(o.setup) : "Offerte"}</b></div>
-              <div class="spec"><small>Engagement</small><b>${o.eng ? o.eng + " mois" : "Aucun"}</b></div>
-            </div>
-            <ul class="feats">${o.feats.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-          </div>
-          <div class="side">
-            <div><div class="price-big">${nf.format(o.price)}<sup>DT/mois</sup></div><div class="price-sub">${tnd(o.price * 12 + o.setup)} sur 12 mois</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${purl(o.p)}">Voir l'offre →</a>
-            ${cmpChk(o.id)}
-          </div>
-        </article>`).join("");
-    };
-    wireList(app, st, render, read);
-    render();
+    f.addEventListener("input", calc); calc();
+    f.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const r = calc();
+      const techs = !r.line ? ["4G Box", "5G Box"] : r.us.includes("game") || r.tier >= 100 ? ["Fibre", "VDSL", "5G Box"] : ["Fibre", "VDSL", "ADSL", "4G Box", "5G Box"];
+      ctl.setFilters({ min: String(r.line ? r.tier : Math.min(r.tier, 30)), tech: techs });
+      if (r.us.includes("work")) ctl.setWeights({ price: 2, speed: 3, up: 5, flex: 1 });
+      else if (r.us.includes("game") || r.us.includes("uhd")) ctl.setWeights({ price: 2, speed: 5, up: 2, flex: 1 });
+      const at = $("#assistTxt"); if (at) at.innerHTML = `Recommandé pour vous : <b>≥ ${r.tier} Mbps</b> — filtres appliqués.`;
+      closeModal(); toast("Filtres de l'assistant appliqués", "sparkles");
+    });
   }
 
   /* =========================================================
      MOBILE
      ========================================================= */
-  function mobilePage(params) {
+  function mobilePage(params, path) {
     document.title = "Comparateur forfaits mobiles Tunisie — Ooredoo, Orange, Tunisie Telecom | Qarin.tn";
     const OPS = [...new Set(D.mobile.map((o) => o.p))];
-    const all = D.mobile.map((o, i) => ({ ...o, id: "mob" + i }));
-    const raw = all.map((o) => (o.data * 1 + (o.min.startsWith("Illimit") ? 25 : parseInt(o.min) / 20 || 0)) / o.price);
-    const mn = Math.min(...raw), mx = Math.max(...raw);
-    all.forEach((o, i) => (o.score = 6.2 + ((raw[i] - mn) / (mx - mn)) * 3.5));
-    const st = { ops: new Set(OPS), data: +params.get("data") || 0, max: +params.get("max") || 70, noEng: false, sort: "score" };
-    cmpSetup("mobile", "forfaits mobiles", [
-      ["Prix", (o) => ({ n: o.price, t: tnd(o.price) + "/mois" }), "min"], ["Data", (o) => ({ n: o.data, t: o.data + " Go" }), "max"], ["Appels", (o) => o.min], ["SMS", (o) => o.sms],
-      ["Prix par Go", (o) => ({ n: +(o.price / o.data).toFixed(2), t: (o.price / o.data).toFixed(2) + " DT" }), "min"], ["Engagement", (o) => (o.eng ? o.eng + " mois" : "Sans")],
-      ["Score Qarin", (o) => ({ n: +o.score.toFixed(1), t: o.score.toFixed(1) + " / 10" }), "max"]
-    ]);
-    cmpPool(all);
-    app.innerHTML = pageHead("📱", "Forfaits mobiles", "Data, appels et prix : trouvez le forfait qui vous ressemble.", "Mobile") + `
-    <div class="container"><div class="layout">
-      <aside class="filters"><form>
-        <h3>Filtres <button type="button" data-reset>Réinitialiser</button></h3>
-        <div class="fgroup"><b>Opérateurs</b>${checks("op", OPS, st.ops)}</div>
-        <div class="fgroup"><b>Data min.</b><select name="data">${[0, 10, 30, 50, 100].map((n) => opt(n, n ? n + " Go" : "Peu importe", st.data)).join("")}</select></div>
-        <div class="fgroup"><b>Budget max : <span class="range-val" id="maxv">${st.max} DT</span></b><input type="range" name="max" min="15" max="70" step="5" value="${st.max}"></div>
-        <div class="fgroup"><label class="check"><input type="checkbox" name="noeng"> Sans engagement</label></div>
-      </form></aside>
-      <div>${DISCLAIMER}
-        <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["score", "⭐ Meilleur score"], ["price", "Prix"], ["data", "Data"]], st.sort)}<button class="btn btn-ghost toggle-filters">⚙️ Filtres</button></div>
-        <div id="res"></div></div>
-    </div></div>`;
-    const read = (f) => { st.ops = readChecks(f, "op"); st.data = +f.data.value; st.max = +f.max.value; st.noEng = f.noeng.checked; $("#maxv").textContent = st.max + " DT"; };
-    const render = () => {
-      const list = all.filter((o) => st.ops.has(o.p) && o.data >= st.data && o.price <= st.max && (!st.noEng || !o.eng))
-        .sort({ score: (a, b) => b.score - a.score, price: (a, b) => a.price - b.price, data: (a, b) => b.data - a.data }[st.sort]);
-      $("#cnt").innerHTML = `${list.length} forfaits`;
-      if (!list.length) { $("#res").innerHTML = emptyBox(); return; }
-      const best = Math.max(...list.map((o) => o.score)), cheap = Math.min(...list.map((o) => o.price));
-      $("#res").innerHTML = list.map((o) => `
-        <article class="offer fade-in ${o.score === best ? "top1" : ""}">
-          <div class="main">
-            <div class="ribbons">${o.score === best ? '<span class="ribbon r-ok">🏆 Meilleur rapport qualité/prix</span>' : ""}${o.price === cheap ? '<span class="ribbon r-best">💰 Le moins cher</span>' : ""}${o.promo ? '<span class="ribbon r-hot">🔥 Promo</span>' : ""}</div>
-            <div class="head">${badge(o.p)}<div><h3>${esc(o.name)}</h3><small>${esc(o.p)}</small></div><div style="margin-left:auto">${scoreHtml(o.score)}</div></div>
-            <div class="specs">
-              <div class="spec"><small>Internet</small><b>${o.data} Go</b></div><div class="spec"><small>Appels</small><b>${esc(o.min)}</b></div>
-              <div class="spec"><small>SMS</small><b>${esc(o.sms)}</b></div><div class="spec"><small>Engagement</small><b>${o.eng ? o.eng + " mois" : "Aucun"}</b></div>
-            </div>
-            <ul class="feats">${o.feats.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-          </div>
-          <div class="side"><div><div class="price-big">${o.price}<sup>DT/mois</sup></div><div class="price-sub">${(o.price / o.data).toFixed(2)} DT par Go</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${purl(o.p)}">Voir l'offre →</a>${cmpChk(o.id)}</div>
-        </article>`).join("");
-    };
-    wireList(app, st, render, read);
-    render();
+    const unl = (o) => o.min.startsWith("Illimit");
+    listPage({
+      key: "mobile", icon: "phone", title: "Forfaits mobiles", crumb: "Mobile", cmpTitle: "forfaits mobiles", unit: "forfaits",
+      sub: "Data, appels et prix : trouvez le forfait qui vous ressemble.",
+      items: D.mobile.map((o, i) => ({ ...o, id: "mob" + i })),
+      price: (o) => o.price, cost: (o) => o.price * 12, costLabel: "par an",
+      perf: { label: "Le plus de data", icon: "zap", get: (o) => o.data, text: (o) => `${o.data} Go · ${(o.price / o.data).toFixed(2).replace(".", ",")} DT/Go` },
+      criteria: [
+        { k: "price", label: "Prix", get: (o) => o.price, better: "min", def: 4 }, { k: "data", label: "Volume de data", get: (o) => Math.sqrt(o.data), better: "max", def: 3 },
+        { k: "calls", label: "Appels", get: (o) => (unl(o) ? 1 : (parseInt(o.min) || 0) / 1000), better: "max", def: 2 }, { k: "flex", label: "Sans engagement", get: (o) => o.eng, better: "min", def: 2 }
+      ],
+      presets: [{ label: "Équilibré", w: { price: 4, data: 3, calls: 2, flex: 2 } }, { label: "Petit budget", w: { price: 5, data: 1, calls: 1, flex: 2 } }, { label: "Gros consommateur data", w: { price: 2, data: 5, calls: 1, flex: 1 } }, { label: "Bavard", w: { price: 2, data: 1, calls: 5, flex: 1 } }],
+      filters: [
+        { key: "op", type: "checks", label: "Opérateurs", options: OPS, get: (o) => o.p },
+        { key: "data", type: "select", label: "Data minimum", options: [[0, "Peu importe"], [10, "10 Go"], [30, "30 Go"], [50, "50 Go"], [100, "100 Go"]], def: "0", init: params.get("data") || null, test: (o, v) => o.data >= +v, chip: (v) => `Data ≥ ${v} Go` },
+        { key: "max", type: "range", label: "Budget max", min: 15, max: 70, step: 5, mode: "max", init: +params.get("max") || null, get: (o) => o.price, fmt: (v) => v + " DT" },
+        { key: "unl", type: "toggle", label: "Appels illimités", test: unl },
+        { key: "g5", type: "toggle", label: "5G incluse", test: (o) => o.feats.some((f) => f.includes("5G")) },
+        { key: "noeng", type: "toggle", label: "Sans engagement", test: (o) => !o.eng }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.price - b.price, "tag"], ["data", "Data", (a, b) => b.data - a.data, "zap"], ["pergo", "Prix / Go", (a, b) => a.price / a.data - b.price / b.data, "calc"]],
+      ribbons: (o) => (o.promo ? `<span class="ribbon r-hot">${icon("fire")}Promo</span>` : "") + (!o.eng ? `<span class="ribbon r-info">${icon("unlock")}Sans engagement</span>` : ""),
+      card: (o) => `<div class="head">${badge(o.p)}<div><h3>${esc(o.name)}</h3><small>${esc(o.p)}</small></div></div>
+        <div class="meters">${meter("Data", (o.data / 150) * 100, o.data + " Go")}</div>
+        <div class="specs">${spec("Appels", esc(o.min))}${spec("SMS", esc(o.sms))}${spec("Engagement", o.eng ? o.eng + " mois" : "Aucun")}${spec("Prix / Go", (o.price / o.data).toFixed(2).replace(".", ",") + " DT")}</div>${feats(o.feats)}`,
+      details: (o) => `<table><tr><td>Coût sur 12 mois</td><td>${tnd(o.price * 12)}</td></tr><tr><td>Coût sur 24 mois</td><td>${tnd(o.price * 24)}</td></tr><tr><td>Heures de streaming HD (≈ 1,5 Go/h)</td><td>≈ ${Math.round(o.data / 1.5)} h/mois</td></tr><tr><td>Heures de réseaux sociaux (≈ 0,15 Go/h)</td><td>≈ ${Math.round(o.data / 0.15)} h/mois</td></tr></table>`,
+      side: (o) => `<div><div class="price-big">${o.price}<sup>DT/mois</sup></div><div class="price-sub"><b>${tnd(o.price * 12)}</b> par an</div></div>`,
+      url: (o) => purl(o.p), fav: (o) => ({ title: o.name, sub: `${o.p} · ${o.data} Go`, price: o.price + " DT/mois" }),
+      compare: [
+        { g: "Prix" }, ["Prix mensuel", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Coût annuel", (o) => ({ n: o.price * 12, t: tnd(o.price * 12) }), "min"], ["Prix par Go", (o) => ({ n: +(o.price / o.data).toFixed(2), t: (o.price / o.data).toFixed(2).replace(".", ",") + " DT" }), "min"],
+        { g: "Contenu" }, ["Data", (o) => ({ n: o.data, t: o.data + " Go" }), "max"], ["Appels", (o) => o.min], ["SMS", (o) => o.sms], ["5G incluse", (o) => yes(o.feats.some((f) => f.includes("5G"))), "max", false],
+        { g: "Contrat" }, ["Engagement", (o) => ({ n: o.eng, t: o.eng ? o.eng + " mois" : "Aucun" }), "min", false], ["Inclus", (o) => o.feats.join(" · ")]
+      ]
+    }, params, path);
   }
 
   /* =========================================================
@@ -392,102 +670,99 @@
     const base = 120 + dst.km * 0.19, clsF = cls === "business" ? 3.1 : 1;
     const directs = D.directAirlines[to] || [];
     let airlines = dst.air.slice();
-    if (from !== "TUN") {
-      airlines = airlines.filter((a) => ["Tunisair", "Nouvelair", "Transavia", "Turkish Airlines", "Qatar Airways"].includes(a));
-      if (!airlines.length) airlines = ["Tunisair"];
-    }
+    if (from !== "TUN") { airlines = airlines.filter((a) => ["Tunisair", "Nouvelair", "Transavia", "Turkish Airlines", "Qatar Airways"].includes(a)); if (!airlines.length) airlines = ["Tunisair"]; }
     const out = [];
     airlines.forEach((a, ai) => {
       let direct = directs.includes(a);
-      if (from !== "TUN") direct = direct && ["Tunisair", "Nouvelair", "Transavia"].includes(a) && dst.km < 2000 && (a !== "Tunisair" || from === "DJE" || from === "MIR" || from === "NBE");
+      if (from !== "TUN") direct = direct && ["Tunisair", "Nouvelair", "Transavia"].includes(a) && dst.km < 2000 && (a !== "Tunisair" || ["DJE", "MIR", "NBE"].includes(from));
       let via = null;
       if (!direct) { via = from !== "TUN" && ["Tunisair", "Nouvelair"].includes(a) ? "TUN" : D.hubs[a]; if (via === to) { direct = true; via = null; } else if (via === from) via = "IST"; }
       const n = 1 + (r() < (direct ? 0.55 : 0.3) ? 1 : 0);
       for (let k = 0; k < n; k++) {
         const dep = (6 + Math.floor(r() * 16)) * 60 + [0, 15, 30, 45][Math.floor(r() * 4)];
-        const block = Math.round(dst.km / 780 * 60 + 35);
+        const block = Math.round((dst.km / 780) * 60 + 35);
         const duration = direct ? block : Math.round(block * 1.35 + 60 + r() * 220);
         const price = Math.round(base * season * dowF * leadF * (D.airlineFactor[a] || 1) * clsF * org.f * (direct ? 1.06 : 0.92) * (0.84 + r() * 0.4));
         const retDep = (7 + Math.floor(r() * 14)) * 60 + [0, 20, 40][Math.floor(r() * 3)];
-        out.push({ id: `fl${ai}${k}`, p: a, name: a, dep, arr: dep + duration, duration, direct, via, price, retPrice: Math.round(price * (0.88 + r() * 0.28)), retDep, bag: a === "Transavia" ? "Cabine 10 kg" : cls === "business" ? "2 × 32 kg" : "Soute 23 kg" });
+        out.push({ id: `fl${ai}${k}`, p: a, name: a, dep, duration, direct, via, price, retPrice: Math.round(price * (0.88 + r() * 0.28)), retDep, bag: a === "Transavia" ? "Cabine 10 kg" : cls === "business" ? "2 × 32 kg" : "Soute 23 kg" });
       }
     });
     return out;
   }
-  function flightsPage(params) {
-    const st = {
+  function flightsPage(params, path) {
+    const q = {
       from: D.airportsTN.some((a) => a.code === params.get("from")) ? params.get("from") : "TUN",
       to: D.destinations.some((d) => d.code === params.get("to")) ? params.get("to") : "CDG",
       date: validDate(params.get("date")) && params.get("date") >= inDays(0) ? params.get("date") : inDays(21),
       ret: validDate(params.get("ret")) ? params.get("ret") : "",
-      pax: clamp(+params.get("pax") || 1, 1, 9), cls: params.get("cls") === "business" ? "business" : "eco",
-      sort: "price", direct: false, airlines: null, slots: new Set(["Matin", "Après-midi", "Soir"])
+      pax: clamp(+params.get("pax") || 1, 1, 9), cls: params.get("cls") === "business" ? "business" : "eco"
     };
-    if (st.ret && st.ret < st.date) st.ret = "";
-    const dst = D.destinations.find((d) => d.code === st.to), org = D.airportsTN.find((a) => a.code === st.from);
+    if (q.ret && q.ret < q.date) q.ret = "";
+    const dst = D.destinations.find((d) => d.code === q.to), org = D.airportsTN.find((a) => a.code === q.from);
     document.title = `Vols ${org.city} → ${dst.city} pas chers | Qarin.tn`;
-    const all = genFlights(st.from, st.to, st.date, st.cls);
-    st.airlines = new Set(all.map((f) => f.p));
-    const cal = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(st.date, n)).filter((d) => d >= inDays(0)).map((d) => ({ d, p: Math.min(...genFlights(st.from, st.to, d, st.cls).map((f) => f.price)) }));
-    const calMin = Math.min(...cal.map((c) => c.p));
-    const q = (o) => { const p = { from: st.from, to: st.to, date: st.date, pax: st.pax, cls: st.cls }; if (st.ret) p.ret = st.ret; return Object.assign(p, o); };
-    const gf = `https://www.google.com/travel/flights?hl=fr&q=${encodeURIComponent(`Vols de ${st.from} à ${st.to} le ${st.date}${st.ret ? " retour " + st.ret : ""}`)}`;
-    const nights = st.ret ? daysBetween(st.date, st.ret) : 0;
-
-    app.innerHTML = pageHead("✈️", `${org.city} → ${dst.city}`, `${frDate(st.date, { weekday: "long", day: "numeric", month: "long" })}${st.ret ? " · retour le " + frDate(st.ret, { weekday: "long", day: "numeric", month: "long" }) : " · aller simple"} · ${st.pax} voyageur${st.pax > 1 ? "s" : ""} · ${st.cls === "business" ? "Affaires" : "Économique"}`, "Vols") + `
-    <div class="container"><form class="page-search form-grid" id="fs">
-      <div class="field"><label>Départ</label><select name="from">${D.airportsTN.map((a) => opt(a.code, `${a.city} (${a.code})`, st.from)).join("")}</select></div>
-      <div class="field"><label>Destination</label><select name="to">${D.destinations.map((d) => opt(d.code, `${d.city} (${d.code})`, st.to)).join("")}</select></div>
-      <div class="field"><label>Aller</label><input type="date" name="date" value="${st.date}" min="${inDays(0)}"></div>
-      <div class="field"><label>Retour</label><input type="date" name="ret" value="${st.ret}" min="${inDays(0)}"></div>
-      <div class="field"><label>Voyageurs</label><select name="pax">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n, st.pax)).join("")}</select></div>
-      <div class="field"><label>Classe</label><select name="cls">${opt("eco", "Économique", st.cls)}${opt("business", "Affaires", st.cls)}</select></div>
-      <button class="btn btn-primary">Rechercher</button>
-    </form>
-    <div class="layout">
-      <aside class="filters"><form>
-        <h3>Filtres <button type="button" data-reset>Réinitialiser</button></h3>
-        <div class="fgroup"><b>Escales</b><label class="check"><input type="checkbox" name="direct"> Vols directs uniquement</label></div>
-        <div class="fgroup"><b>Heure de départ</b>${checks("slot", ["Matin", "Après-midi", "Soir"], st.slots)}</div>
-        <div class="fgroup"><b>Compagnies</b>${checks("air", [...st.airlines], st.airlines)}</div>
-      </form></aside>
-      <div>
-        <div class="cal">${cal.map((c) => `<button data-day="${c.d}" class="${c.d === st.date ? "active" : ""} ${c.p === calMin ? "cheap" : ""}"><small>${frDate(c.d)}</small><b>${tnd(c.p)}</b><small>aller dès</small></button>`).join("")}</div>
-        <div class="note">ℹ️ <b>Prix estimés</b> par personne, selon la saison, le jour et la compagnie. Cliquez sur « Voir les vols » pour la disponibilité et le prix réels en temps réel.</div>
-        <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["price", "💰 Moins cher"], ["duration", "⚡ Plus rapide"], ["dep", "🕐 Départ"]], st.sort)}<button class="btn btn-ghost toggle-filters">⚙️ Filtres</button></div>
-        <div id="res"></div>
-      </div>
-    </div></div>`;
-
-    $("#fs").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("vols", p); });
-    $$(".cal button", app).forEach((b) => b.addEventListener("click", () => go("vols", q({ date: b.dataset.day, ...(st.ret && st.ret < b.dataset.day ? { ret: addDays(b.dataset.day, nights || 7) } : {}) }))));
-    const slotOf = (m) => (m < 12 * 60 ? "Matin" : m < 18 * 60 ? "Après-midi" : "Soir");
-    const read = (f) => { st.direct = f.direct.checked; st.slots = readChecks(f, "slot"); st.airlines = readChecks(f, "air"); };
-    const render = () => {
-      const list = all.filter((f) => (!st.direct || f.direct) && st.airlines.has(f.p) && st.slots.has(slotOf(f.dep)))
-        .sort({ price: (a, b) => a.price - b.price, duration: (a, b) => a.duration - b.duration, dep: (a, b) => a.dep - b.dep }[st.sort]);
-      $("#cnt").innerHTML = `${list.length} vols <small>trouvés</small>`;
-      if (!list.length) { $("#res").innerHTML = emptyBox(); return; }
-      const cheap = Math.min(...list.map((f) => f.price)), fast = Math.min(...list.map((f) => f.duration));
-      $("#res").innerHTML = list.map((f) => {
-        const per = f.price + (st.ret ? f.retPrice : 0);
-        const row = (dep, from, to, lbl) => `<div class="fl-row" style="margin-bottom:10px">${badge(f.p)}<div class="fl-time"><b>${hm(dep)}</b><small>${from} · ${lbl}</small></div>
-            <div class="fl-line fl-dur">${dur(f.duration)}<div class="bar"></div>${f.direct ? '<span class="direct">Direct</span>' : `<span class="stop">1 escale · ${f.via}</span>`}</div>
-            <div class="fl-time" style="text-align:right"><b>${hm(dep + f.duration)}${dep + f.duration >= 1440 ? '<sup style="color:var(--accent);font-size:12px"> +1</sup>' : ""}</b><small>${to}</small></div></div>`;
-        return `<article class="offer flight fade-in ${f.price === cheap ? "top1" : ""}">
-          <div class="main">
-            <div class="ribbons">${f.price === cheap ? '<span class="ribbon r-best">💰 Le moins cher</span>' : ""}${f.duration === fast && fast < Math.max(...list.map((x) => x.duration)) ? '<span class="ribbon r-ok">⚡ Le plus rapide</span>' : ""}<span class="ribbon r-info">🧳 ${f.bag}</span></div>
-            ${row(f.dep, st.from, st.to, "Aller")}${st.ret ? row(f.retDep, st.to, st.from, "Retour " + frDate(st.ret)) : ""}
-            <small style="color:var(--muted)">${esc(f.p)}${f.direct ? "" : " · correspondance à " + f.via}</small>
-          </div>
-          <div class="side"><div><div class="price-big">${nf.format(per)}<sup>DT</sup></div><div class="price-sub">par pers. ${st.ret ? "aller-retour" : "aller simple"}${st.pax > 1 ? `<br><b>${tnd(per * st.pax)}</b> pour ${st.pax}` : ""}</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${gf}">Voir les vols →</a>
-            <a href="${purl(f.p)}" target="_blank" rel="noopener nofollow" style="font-size:13px">Site ${esc(f.p)}</a></div>
-        </article>`;
-      }).join("");
-    };
-    wireList(app, st, render, read);
-    render();
+    const items = genFlights(q.from, q.to, q.date, q.cls).map((f) => ({ ...f, pp: f.price + (q.ret ? f.retPrice : 0) }));
+    const AIR = [...new Set(items.map((f) => f.p))];
+    const ppMax = Math.ceil(Math.max(...items.map((f) => f.pp)) / 50) * 50, ppMin = Math.floor(Math.min(...items.map((f) => f.pp)) / 50) * 50;
+    const slotOf = (m) => (m < 720 ? "Matin" : m < 1080 ? "Après-midi" : "Soir");
+    const nights = q.ret ? daysBetween(q.date, q.ret) : 0;
+    const gf = `https://www.google.com/travel/flights?hl=fr&q=${encodeURIComponent(`Vols de ${q.from} à ${q.to} le ${q.date}${q.ret ? " retour " + q.ret : ""}`)}`;
+    // calendrier des prix (14 jours)
+    let startD = addDays(q.date, -6); if (startD < inDays(0)) startD = inDays(0);
+    const days = Array.from({ length: 14 }, (_, i) => addDays(startD, i)).map((d) => ({ d, p: Math.min(...genFlights(q.from, q.to, d, q.cls).map((f) => f.price)) }));
+    const cMin = Math.min(...days.map((x) => x.p)), cMax = Math.max(...days.map((x) => x.p));
+    const cheapDay = days.find((x) => x.p === cMin), curP = (days.find((x) => x.d === q.date) || { p: cMin }).p;
+    const chart = `<div class="chart"><div class="chart-head"><b>${icon("chart")}Calendrier des prix <small>· aller, par personne</small></b><small>Cliquez sur un jour pour changer de date</small></div>
+      <div class="bars">${days.map((x) => `<button type="button" data-day="${x.d}" class="${x.d === q.date ? "active" : ""} ${x.p === cMin ? "cheap" : ""}" title="${frDate(x.d)} : dès ${tnd(x.p)}"><span class="v">${x.p}</span><i style="height:${25 + ((x.p - cMin) / (cMax - cMin || 1)) * 65}%"></i><span class="d">${new Date(x.d + "T00:00:00").getDate()}/${new Date(x.d + "T00:00:00").getMonth() + 1}</span></button>`).join("")}</div>
+      ${cheapDay.d !== q.date && curP - cMin > 5 ? `<div class="tip">${icon("bulb")}Partez le ${frDate(cheapDay.d, { weekday: "long", day: "numeric", month: "long" })} et économisez ${tnd(curP - cMin)} par personne.</div>` : `<div class="tip">${icon("check")}Bonne nouvelle : votre date fait partie des moins chères de la période.</div>`}</div>`;
+    const form = `<form class="page-search form-grid" id="fs">
+      <div class="field"><label>Départ</label><select name="from">${D.airportsTN.map((a) => opt(a.code, `${a.city} (${a.code})`, q.from)).join("")}</select></div>
+      <div class="field"><label>Destination</label><select name="to">${D.destinations.map((d) => opt(d.code, `${d.city} (${d.code})`, q.to)).join("")}</select></div>
+      <div class="field"><label>Aller</label><input type="date" name="date" value="${q.date}" min="${inDays(0)}"></div>
+      <div class="field"><label>Retour</label><input type="date" name="ret" value="${q.ret}" min="${inDays(0)}"></div>
+      <div class="field"><label>Voyageurs</label><select name="pax">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n, q.pax)).join("")}</select></div>
+      <div class="field"><label>Classe</label><select name="cls">${opt("eco", "Économique", q.cls)}${opt("business", "Affaires", q.cls)}</select></div>
+      <button class="btn btn-primary">${icon("search")}Rechercher</button></form>`;
+    const row = (f, dep, a, b, lbl) => `<div class="fl-row">${badge(f.p)}<div class="fl-time"><b>${hm(dep)}</b><small>${a} · ${lbl}</small></div>
+      <div class="fl-line">${dur(f.duration)}<div class="bar">${f.direct ? "" : '<span class="via"></span>'}</div>${f.direct ? '<span class="direct">Direct</span>' : `<span class="stop">1 escale · ${f.via}</span>`}</div>
+      <div class="fl-time" style="text-align:right"><b>${hm(dep + f.duration)}${dep + f.duration >= 1440 ? '<sup style="color:var(--accent);font-size:12px"> +1</sup>' : ""}</b><small>${b}</small></div></div>`;
+    listPage({
+      key: "vols", icon: "plane", title: `${org.city} → ${dst.city}`, crumb: "Vols", cmpTitle: "vols", unit: "vols",
+      sub: `${frDate(q.date, { weekday: "long", day: "numeric", month: "long" })}${q.ret ? " · retour " + frDate(q.ret, { weekday: "long", day: "numeric", month: "long" }) : " · aller simple"} · ${q.pax} voyageur${q.pax > 1 ? "s" : ""} · ${q.cls === "business" ? "Affaires" : "Économique"}`,
+      searchForm: form, items, top: chart,
+      note: "<b>Prix estimés</b> par personne selon la saison, le jour et la compagnie. « Voir les vols » affiche la disponibilité et le prix réels en temps réel.",
+      price: (f) => f.pp, cost: (f) => f.pp * q.pax, costLabel: "pour le voyage",
+      perf: { label: "Le plus rapide", icon: "zap", get: (f) => -f.duration, text: (f) => dur(f.duration) + (f.direct ? " · direct" : " · via " + f.via) },
+      label: (f) => f.p, sublabel: (f) => `${hm(f.dep)} · ${f.direct ? "Direct" : "1 escale"}`,
+      criteria: [{ k: "price", label: "Prix", get: (f) => f.pp, better: "min", def: 4 }, { k: "dur", label: "Durée", get: (f) => f.duration, better: "min", def: 3 }, { k: "direct", label: "Vol direct", get: (f) => (f.direct ? 1 : 0), better: "max", def: 2 }, { k: "bag", label: "Bagage soute", get: (f) => (f.bag.startsWith("Cabine") ? 0 : 1), better: "max", def: 1 }],
+      presets: [{ label: "Meilleur compromis", w: { price: 4, dur: 3, direct: 2, bag: 1 } }, { label: "Le moins cher", w: { price: 5, dur: 0, direct: 0, bag: 0 } }, { label: "Le plus rapide", w: { price: 1, dur: 5, direct: 3, bag: 0 } }, { label: "Confort", w: { price: 2, dur: 3, direct: 5, bag: 4 } }],
+      filters: [
+        { key: "direct", type: "toggle", label: "Vols directs uniquement", test: (f) => f.direct },
+        { key: "bag", type: "toggle", label: "Bagage soute inclus", test: (f) => !f.bag.startsWith("Cabine") },
+        { key: "slot", type: "checks", label: "Heure de départ", options: ["Matin", "Après-midi", "Soir"], get: (f) => slotOf(f.dep) },
+        { key: "max", type: "range", label: "Prix max / pers.", min: ppMin, max: ppMax, step: 10, mode: "max", get: (f) => f.pp, fmt: (v) => v + " DT" },
+        { key: "air", type: "checks", label: "Compagnies", options: AIR, get: (f) => f.p }
+      ],
+      sorts: [["score", "Meilleur compromis", null, "sparkles"], ["price", "Moins cher", (a, b) => a.pp - b.pp, "tag"], ["dur", "Plus rapide", (a, b) => a.duration - b.duration, "zap"], ["dep", "Départ", (a, b) => a.dep - b.dep, "clock"]],
+      ribbons: (f) => (f.direct ? `<span class="ribbon r-ok">${icon("zap")}Direct</span>` : "") + `<span class="ribbon r-info">${icon("bag")}${f.bag}</span>`,
+      card: (f) => `${row(f, f.dep, q.from, q.to, "Aller")}${q.ret ? row(f, f.retDep, q.to, q.from, "Retour " + frDate(q.ret)) : ""}<small class="muted" style="font-weight:600">${esc(f.p)}${f.direct ? " · vol direct" : " · correspondance à " + f.via}</small>`,
+      details: (f) => `<table><tr><td>Aller · ${esc(f.p)}</td><td>${tnd(f.price)}</td></tr>${q.ret ? `<tr><td>Retour</td><td>${tnd(f.retPrice)}</td></tr>` : ""}<tr><td>Prix par personne</td><td>${tnd(f.pp)}</td></tr><tr class="total"><td>Total ${q.pax} voyageur${q.pax > 1 ? "s" : ""}</td><td>${tnd(f.pp * q.pax)}</td></tr><tr><td>Bagage inclus</td><td>${f.bag}</td></tr></table>`,
+      side: (f) => `<div><div class="price-big">${nf.format(f.pp)}<sup>DT</sup></div><div class="price-sub">par pers. ${q.ret ? "aller-retour" : "aller simple"}${q.pax > 1 ? `<br><b>${tnd(f.pp * q.pax)}</b> pour ${q.pax}` : ""}</div></div>`,
+      cta: "Voir les vols", url: () => gf, fav: (f) => ({ title: `${q.from} → ${q.to} · ${f.p}`, sub: `${frDate(q.date)} ${hm(f.dep)}${q.ret ? " · A/R" : ""}`, price: tnd(f.pp) + "/pers." }),
+      compare: [
+        { g: "Prix" }, ["Prix par personne", (f) => ({ n: f.pp, t: tnd(f.pp) }), "min"], ["Total voyage", (f) => ({ n: f.pp * q.pax, t: tnd(f.pp * q.pax) }), "min"],
+        { g: "Trajet" }, ["Durée", (f) => ({ n: f.duration, t: dur(f.duration) }), "min"], ["Escales", (f) => ({ n: f.direct ? 0 : 1, t: f.direct ? "Direct" : "1 · " + f.via }), "min", false],
+        ["Départ aller", (f) => hm(f.dep)], ["Arrivée", (f) => hm(f.dep + f.duration)], ...(q.ret ? [["Départ retour", (f) => hm(f.retDep)]] : []),
+        { g: "Confort" }, ["Bagage", (f) => f.bag], ["Compagnie", (f) => f.p]
+      ],
+      after: () => {
+        $("#fs").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("vols", p); });
+        $$("[data-day]", app).forEach((b) => b.addEventListener("click", () => {
+          const p = { from: q.from, to: q.to, date: b.dataset.day, pax: q.pax, cls: q.cls };
+          if (q.ret) p.ret = q.ret < b.dataset.day ? addDays(b.dataset.day, nights || 7) : q.ret;
+          go("vols", p);
+        }));
+      }
+    }, params, path);
   }
 
   /* =========================================================
@@ -495,254 +770,254 @@
      ========================================================= */
   function genHotels(cityId, date, nights) {
     const city = D.cities.find((c) => c.id === cityId) || D.cities[0];
-    const r = rng(hashStr("hotels" + city.id));
-    const rp = rng(hashStr("hp" + city.id + date));
+    const r = rng(hashStr("hotels" + city.id)), rp = rng(hashStr("hp" + city.id + date));
     const season = [0.75, 0.75, 0.85, 0.95, 1.05, 1.3, 1.6, 1.7, 1.25, 1, 0.82, 0.95][new Date(date + "T00:00:00").getMonth()];
     const used = new Set();
     return D.hotelTypes.concat(D.hotelTypes.filter(() => r() < 0.4)).map((t, i) => {
       let nm; do { nm = D.nameBits[Math.floor(r() * D.nameBits.length)]; } while (used.has(nm) && used.size < D.nameBits.length); used.add(nm);
-      const suffix = t.t.includes("Resort") ? " Resort" : t.t.includes("Maison") ? "" : t.t.includes("Résidence") ? " Résidence" : "";
+      const suffix = t.t.includes("Resort") ? " Resort" : t.t.includes("Résidence") ? " Résidence" : "";
       const name = (t.t.includes("Maison") ? "Dar " : "Hôtel ") + nm + suffix;
       const night = Math.round(t.base * (D.cityFactor[city.id] || 1) * season * (0.85 + rp() * 0.35) * (nights >= 7 ? 0.93 : 1));
-      const rating = Math.round((7.4 + r() * 2 + (t.stars - 3) * 0.15) * 10) / 10;
-      return { id: "h" + i, p: name, name, type: t.t, stars: t.stars, board: t.board, feats: t.feats, night, rating: Math.min(rating, 9.6), beach: t.feats.some((f) => f.startsWith("Plage")) ? Math.round(r() * 3) * 50 : Math.round(300 + r() * 2500), reviews: Math.round(80 + r() * 2400), hue: Math.round(r() * 60 - 30), city };
+      const rating = Math.min(9.6, Math.round((7.4 + r() * 2 + (t.stars - 3) * 0.15) * 10) / 10);
+      const beach = t.feats.some((f) => f.startsWith("Plage")) ? Math.round(r() * 3) * 50 : Math.round(300 + r() * 2500);
+      return { id: "h" + i, p: name, name, short: nm.replace(/^(Les|Le|El|Sidi)\s+/, "").slice(0, 2).toUpperCase(), color: `linear-gradient(135deg,${city.g1},${city.g2})`, type: t.t, stars: t.stars, board: t.board, feats: t.feats, night, rating, beach, reviews: Math.round(80 + r() * 2400), hue: Math.round(r() * 60 - 30), city };
     });
   }
-  function hotelsPage(params) {
+  function hotelsPage(params, path) {
     const city = D.cities.find((c) => c.id === params.get("dest")) || D.cities[0];
-    let din = validDate(params.get("in")) && params.get("in") >= inDays(0) ? params.get("in") : inDays(30);
-    let dout = validDate(params.get("out")) && params.get("out") > din ? params.get("out") : addDays(din, 7);
+    const din = validDate(params.get("in")) && params.get("in") >= inDays(0) ? params.get("in") : inDays(30);
+    const dout = validDate(params.get("out")) && params.get("out") > din ? params.get("out") : addDays(din, 7);
     const nights = daysBetween(din, dout), ad = clamp(+params.get("ad") || 2, 1, 6);
     document.title = `Hôtels à ${city.name} — comparez les prix | Qarin.tn`;
-    const all = genHotels(city.id, din, nights);
-    const BOARDS = ["All Inclusive", "Demi-pension", "Petit-déjeuner", "Logement seul"];
-    const FEATS = ["Plage", "Plage privée", "Piscine", "Spa", "Club enfants", "Adultes uniquement", "Thalasso"];
-    const st = { stars: new Set(["3", "4", "5"]), boards: new Set(BOARDS), feats: new Set(), max: 600, sort: "reco" };
+    const items = genHotels(city.id, din, nights);
+    const BOARDS = ["All Inclusive", "Demi-pension", "Petit-déjeuner", "Logement seul"], FEATS = ["Plage", "Plage privée", "Piscine", "Spa", "Club enfants", "Adultes uniquement", "Thalasso", "Wi-Fi"];
+    const nMax = Math.ceil(Math.max(...items.map((h) => h.night)) / 10) * 10, nMin = Math.floor(Math.min(...items.map((h) => h.night)) / 10) * 10;
     const booking = `https://www.booking.com/searchresults.fr.html?ss=${encodeURIComponent(city.name.split(" &")[0] + ", Tunisie")}&checkin=${din}&checkout=${dout}&group_adults=${ad}&no_rooms=1`;
-
-    app.innerHTML = pageHead("🏨", `Hôtels à ${city.name}`, `${frDate(din)} → ${frDate(dout)} · ${nights} nuit${nights > 1 ? "s" : ""} · ${ad} adulte${ad > 1 ? "s" : ""}`, "Hôtels") + `
-    <div class="container"><form class="page-search form-grid" id="hs">
+    const beachTxt = (h) => (h.beach <= 150 ? (h.beach ? h.beach + " m de la plage" : "Accès direct plage") : (h.beach / 1000).toFixed(1).replace(".", ",") + " km de la plage");
+    const form = `<form class="page-search form-grid" id="hs">
       <div class="field"><label>Destination</label><select name="dest">${D.cities.map((c) => opt(c.id, c.name, city.id)).join("")}</select></div>
       <div class="field"><label>Arrivée</label><input type="date" name="in" value="${din}" min="${inDays(0)}"></div>
       <div class="field"><label>Départ</label><input type="date" name="out" value="${dout}" min="${inDays(1)}"></div>
       <div class="field"><label>Adultes</label><select name="ad">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n, ad)).join("")}</select></div>
-      <button class="btn btn-primary">Rechercher</button>
-    </form>
-    <div class="layout">
-      <aside class="filters"><form>
-        <h3>Filtres <button type="button" data-reset>Réinitialiser</button></h3>
-        <div class="fgroup"><b>Étoiles</b>${["5", "4", "3"].map((s) => `<label class="check"><input type="checkbox" name="stars" value="${s}" checked> <span class="stars">${"★".repeat(+s)}</span></label>`).join("")}</div>
-        <div class="fgroup"><b>Pension</b>${checks("board", BOARDS, st.boards)}</div>
-        <div class="fgroup"><b>Prix max / nuit / pers. : <span class="range-val" id="maxv">${st.max} DT</span></b><input type="range" name="max" min="60" max="600" step="10" value="${st.max}"></div>
-        <div class="fgroup"><b>Équipements</b>${checks("feat", FEATS, st.feats)}</div>
-      </form></aside>
-      <div>
-        <div class="note">ℹ️ Établissements présentés à titre d'exemple avec des <b>prix moyens estimés</b> pour la période. La disponibilité et le prix réels s'affichent chez notre partenaire de réservation.</div>
-        <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["reco", "⭐ Recommandés"], ["price", "Prix"], ["rating", "Note"], ["stars", "Étoiles"]], st.sort)}<button class="btn btn-ghost toggle-filters">⚙️ Filtres</button></div>
-        <div id="res"></div>
-      </div>
-    </div></div>`;
-    $("#hs").addEventListener("submit", (e) => { e.preventDefault(); go("hotels", Object.fromEntries(new FormData(e.target).entries())); });
-    const read = (f) => { st.stars = readChecks(f, "stars"); st.boards = readChecks(f, "board"); st.feats = readChecks(f, "feat"); st.max = +f.max.value; $("#maxv").textContent = st.max + " DT"; };
-    const render = () => {
-      const list = all.filter((h) => st.stars.has(String(h.stars)) && st.boards.has(h.board) && h.night <= st.max && [...st.feats].every((f) => h.feats.includes(f)))
-        .sort({ reco: (a, b) => b.rating * 40 - b.night - (a.rating * 40 - a.night), price: (a, b) => a.night - b.night, rating: (a, b) => b.rating - a.rating, stars: (a, b) => b.stars - a.stars || a.night - b.night }[st.sort]);
-      $("#cnt").innerHTML = `${list.length} hébergements <small>à ${esc(city.name)}</small>`;
-      if (!list.length) { $("#res").innerHTML = emptyBox(); return; }
-      const cheap = Math.min(...list.map((h) => h.night)), top = Math.max(...list.map((h) => h.rating));
-      $("#res").innerHTML = list.map((h) => `
-        <article class="offer hotel fade-in">
-          <div class="img" style="background:linear-gradient(135deg,${h.city.g1},${h.city.g2});filter:hue-rotate(${h.hue}deg)">
-            <svg viewBox="0 0 200 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;opacity:.35" aria-hidden="true"><circle cx="150" cy="35" r="18" fill="#fff"/><path d="M0 85 Q25 75 50 85 T100 85 T150 85 T200 85 V120 H0Z" fill="#fff"/><path d="M0 98 Q25 90 50 98 T100 98 T150 98 T200 98 V120 H0Z" fill="#fff" opacity=".6"/><path d="M40 85 C40 60 44 45 48 35 M48 35 C38 30 30 34 26 40 M48 35 C56 28 66 30 70 36 M48 35 C46 26 50 20 56 18" stroke="#fff" stroke-width="3" fill="none"/></svg>
-            <span>${esc(h.type)}</span></div>
-          <div class="main">
-            <div class="ribbons">${h.night === cheap ? '<span class="ribbon r-best">💰 Meilleur prix</span>' : ""}${h.rating === top ? '<span class="ribbon r-ok">🏆 Mieux noté</span>' : ""}<span class="ribbon r-info">${esc(h.board)}</span></div>
-            <div class="head"><div><h3>${esc(h.name)}</h3><small><span class="stars">${stars(h.stars)}</span> · ${esc(city.name)} · ${h.beach <= 150 ? (h.beach ? h.beach + " m de la plage" : "Accès direct plage") : (h.beach / 1000).toFixed(1).replace(".", ",") + " km de la plage"}</small></div>
-              <div style="margin-left:auto;text-align:right">${scoreHtml(h.rating)}<br><small style="color:var(--muted)">${nf.format(h.reviews)} avis</small></div></div>
-            <ul class="feats">${h.feats.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-          </div>
-          <div class="side"><div><div class="price-sub">dès</div><div class="price-big">${nf.format(h.night)}<sup>DT</sup></div><div class="price-sub">/ nuit / pers.<br><b>${tnd(h.night * nights * ad)}</b> total · ${nights} nuits</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${booking}">Disponibilités →</a></div>
-        </article>`).join("");
-    };
-    wireList(app, st, render, read);
-    render();
+      <button class="btn btn-primary">${icon("search")}Rechercher</button></form>`;
+    listPage({
+      key: "hotels", icon: "hotel", title: `Hôtels à ${city.name}`, crumb: "Hôtels", cmpTitle: "hôtels", cardClass: "hotel",
+      sub: `${frDate(din)} → ${frDate(dout)} · ${nights} nuit${nights > 1 ? "s" : ""} · ${ad} adulte${ad > 1 ? "s" : ""}`,
+      searchForm: form, items, countText: (n) => `${n} hébergements <small>à ${esc(city.name)}</small>`,
+      note: "Établissements présentés à titre d'exemple avec des <b>prix moyens estimés</b> pour la période. La disponibilité et le prix réels s'affichent chez notre partenaire de réservation.",
+      price: (h) => h.night, cost: (h) => h.night * nights * ad, costLabel: "sur le séjour",
+      perf: { label: "Le mieux noté", icon: "star", get: (h) => h.rating, text: (h) => `${h.rating}/10 · ${nf.format(h.reviews)} avis` },
+      criteria: [{ k: "price", label: "Prix", get: (h) => h.night, better: "min", def: 4 }, { k: "rating", label: "Note des clients", get: (h) => h.rating, better: "max", def: 4 }, { k: "stars", label: "Catégorie (étoiles)", get: (h) => h.stars, better: "max", def: 1 }, { k: "beach", label: "Proximité plage", get: (h) => h.beach, better: "min", def: 2 }],
+      presets: [{ label: "Rapport qualité/prix", w: { price: 4, rating: 4, stars: 1, beach: 2 } }, { label: "Petit budget", w: { price: 5, rating: 2, stars: 0, beach: 1 } }, { label: "Luxe", w: { price: 0, rating: 4, stars: 5, beach: 3 } }, { label: "Pieds dans l'eau", w: { price: 2, rating: 2, stars: 1, beach: 5 } }],
+      filters: [
+        { key: "stars", type: "checks", label: "Étoiles", options: ["5", "4", "3"], get: (h) => h.stars, render: (v) => starsHtml(+v) },
+        { key: "rating", type: "select", label: "Note minimum", options: [[0, "Toutes"], [8, "Très bien 8+"], [8.5, "Superbe 8,5+"], [9, "Exceptionnel 9+"]], def: "0", test: (h, v) => h.rating >= +v, chip: (v) => `Note ≥ ${v}` },
+        { key: "board", type: "checks", label: "Pension", options: BOARDS, get: (h) => h.board },
+        { key: "max", type: "range", label: "Prix max / nuit", min: nMin, max: nMax, step: 5, mode: "max", get: (h) => h.night, fmt: (v) => v + " DT" },
+        { key: "feat", type: "musthave", label: "Équipements", options: FEATS, get: (h) => h.feats }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.night - b.night, "tag"], ["rating", "Note", (a, b) => b.rating - a.rating, "star"], ["stars", "Étoiles", (a, b) => b.stars - a.stars || a.night - b.night, "crown"]],
+      ribbons: (h) => `<span class="ribbon r-info">${esc(h.board)}</span>` + (h.rating >= 9 ? `<span class="ribbon r-ok">${icon("star")}Exceptionnel</span>` : ""),
+      media: (h) => `<div class="img" style="background:${h.color};filter:hue-rotate(${h.hue}deg)"><svg viewBox="0 0 200 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;opacity:.35" aria-hidden="true"><circle cx="150" cy="35" r="18" fill="#fff"/><path d="M0 85 Q25 75 50 85 T100 85 T150 85 T200 85 V120 H0Z" fill="#fff"/><path d="M0 98 Q25 90 50 98 T100 98 T150 98 T200 98 V120 H0Z" fill="#fff" opacity=".6"/><path d="M40 85 C40 60 44 45 48 35 M48 35 C38 30 30 34 26 40 M48 35 C56 28 66 30 70 36 M48 35 C46 26 50 20 56 18" stroke="#fff" stroke-width="3" fill="none"/></svg><span>${esc(h.type)}</span></div>`,
+      card: (h) => `<div class="head"><div><h3>${esc(h.name)}</h3><small>${starsHtml(h.stars)} · ${esc(city.name)} · ${beachTxt(h)}</small></div></div>
+        <div class="meters">${meter("Note clients", (h.rating - 6) * 25, h.rating + "/10")}</div>${feats(h.feats)}<small class="muted" style="display:block;margin-top:8px">${nf.format(h.reviews)} avis vérifiés</small>`,
+      details: (h) => `<table><tr><td>${nights} nuits × ${ad} adulte${ad > 1 ? "s" : ""} × ${tnd(h.night)}</td><td>${tnd(h.night * nights * ad)}</td></tr><tr><td>Pension</td><td>${esc(h.board)}</td></tr><tr class="total"><td>Total séjour estimé</td><td>${tnd(h.night * nights * ad)}</td></tr></table>`,
+      side: (h) => `<div><div class="price-sub">dès</div><div class="price-big">${nf.format(h.night)}<sup>DT</sup></div><div class="price-sub">/ nuit / pers.<br><b>${tnd(h.night * nights * ad)}</b> le séjour</div></div>`,
+      cta: "Disponibilités", url: () => booking, fav: (h) => ({ title: h.name, sub: `${city.name} · ${h.stars}★ · ${h.board}`, price: tnd(h.night) + "/nuit" }),
+      label: (h) => h.name, sublabel: (h) => `${h.stars}★ · ${h.type}`,
+      compare: [
+        { g: "Prix" }, ["Prix / nuit / pers.", (h) => ({ n: h.night, t: tnd(h.night) }), "min"], ["Total séjour", (h) => ({ n: h.night * nights * ad, t: tnd(h.night * nights * ad) }), "min"],
+        { g: "Qualité" }, ["Note clients", (h) => ({ n: h.rating, t: h.rating + "/10" }), "max"], ["Nombre d'avis", (h) => ({ n: h.reviews, t: nf.format(h.reviews) }), "max"], ["Étoiles", (h) => ({ n: h.stars, t: "★".repeat(h.stars) }), "max", false], ["Pension", (h) => h.board],
+        ["Plage", (h) => ({ n: h.beach, t: beachTxt(h) }), "min", false],
+        { g: "Équipements" }, ...FEATS.map((f) => [f, (h) => yes(h.feats.includes(f)), "max", false])
+      ],
+      after: () => $("#hs").addEventListener("submit", (e) => { e.preventDefault(); go("hotels", Object.fromEntries(new FormData(e.target).entries())); })
+    }, params, path);
   }
 
   /* =========================================================
      ASSURANCE AUTO
      ========================================================= */
-  function insurancePage(params) {
+  function insurancePage(params, path) {
     document.title = "Comparateur assurance auto Tunisie — devis estimatif | Qarin.tn";
-    const st = {
+    const q = {
       cv: clamp(+params.get("cv") || 6, 4, 20), val: clamp(+params.get("val") || 45000, 5000, 500000), f: ["rc", "tp", "tr"].includes(params.get("f")) ? params.get("f") : "tp",
-      age: clamp(+params.get("age") || 35, 18, 90), lic: clamp(params.has("lic") ? +params.get("lic") : 10, 0, 70), vage: clamp(+params.get("vage") || 3, 0, 40), gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis", sort: "price"
+      age: clamp(+params.get("age") || 35, 18, 90), lic: clamp(params.has("lic") ? +params.get("lic") : 10, 0, 70), vage: clamp(+params.get("vage") || 3, 0, 40), gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis"
     };
     const FORM = { rc: "Responsabilité civile", tp: "Tiers + vol / incendie", tr: "Tous risques" };
     const GUAR = ["Resp. civile", "Défense & recours", "Incendie", "Vol", "Bris de glace", "Dommages collision", "Tous dommages", "Assistance 0 km"];
-    app.innerHTML = pageHead("🚗", "Assurance auto", "Estimez et comparez votre prime annuelle auprès des assureurs tunisiens.", "Assurance auto") + `
-    <div class="container"><form class="page-search form-grid" id="is">
-      <div class="field"><label>Puissance fiscale</label><select name="cv">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((n) => opt(n, n + " CV", st.cv)).join("")}</select></div>
-      <div class="field"><label>Valeur véhicule (DT)</label><input type="number" name="val" value="${st.val}" min="5000" step="1000"></div>
-      <div class="field"><label>Âge du véhicule</label><select name="vage">${[0, 1, 2, 3, 5, 8, 10, 15].map((n) => opt(n, n ? n + " ans" : "Neuf", st.vage)).join("")}</select></div>
-      <div class="field"><label>Âge conducteur</label><input type="number" name="age" value="${st.age}" min="18" max="90"></div>
-      <div class="field"><label>Années de permis</label><input type="number" name="lic" value="${st.lic}" min="0" max="70"></div>
-      <div class="field"><label>Gouvernorat</label><select name="gov">${D.governorates.map((g) => opt(g, g, st.gov)).join("")}</select></div>
-      <div class="field"><label>Formule</label><select name="f">${Object.entries(FORM).map(([k, v]) => opt(k, v, st.f)).join("")}</select></div>
-      <button class="btn btn-primary">Recalculer</button>
-    </form>
-    <div style="padding:24px 0 60px">
-      ${DISCLAIMER}
-      <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["price", "💰 Prix"], ["rating", "⭐ Satisfaction"]], st.sort)}</div>
-      <div id="res"></div>
-    </div></div>`;
-    $("#is").addEventListener("submit", (e) => { e.preventDefault(); go("assurance-auto", Object.fromEntries(new FormData(e.target).entries())); });
-    const rc = (250 + st.cv * 38) * (st.age < 25 ? 1.35 : st.age < 30 ? 1.12 : st.age > 70 ? 1.15 : 1) * (st.lic < 2 ? 1.25 : st.lic < 5 ? 1.08 : 1) * (["Tunis", "Ariana", "Ben Arous", "Manouba", "Sousse", "Sfax"].includes(st.gov) ? 1.1 : 1);
-    const basePrem = st.f === "rc" ? rc : st.f === "tp" ? rc + st.val * 0.011 * (st.vage > 10 ? 0.7 : 1) : rc + st.val * 0.034 * (st.vage > 8 ? 0.8 : 1);
-    const all = D.insurers.map((ins, i) => {
-      const r = rng(hashStr(ins.p + st.cv + st.val + st.f + st.age + st.gov));
-      const price = Math.round(basePrem * ins.f * (0.96 + r() * 0.08));
+    const rc = (250 + q.cv * 38) * (q.age < 25 ? 1.35 : q.age < 30 ? 1.12 : q.age > 70 ? 1.15 : 1) * (q.lic < 2 ? 1.25 : q.lic < 5 ? 1.08 : 1) * (["Tunis", "Ariana", "Ben Arous", "Manouba", "Sousse", "Sfax"].includes(q.gov) ? 1.1 : 1);
+    const basePrem = q.f === "rc" ? rc : q.f === "tp" ? rc + q.val * 0.011 * (q.vage > 10 ? 0.7 : 1) : rc + q.val * 0.034 * (q.vage > 8 ? 0.8 : 1);
+    const items = D.insurers.map((ins, i) => {
+      const r = rng(hashStr(ins.p + q.cv + q.val + q.f + q.age + q.gov));
       const on = new Set(["Resp. civile", "Défense & recours"]);
-      if (st.f !== "rc") { on.add("Incendie"); on.add("Vol"); }
-      if (st.f === "tr") { on.add("Dommages collision"); on.add("Tous dommages"); on.add("Bris de glace"); }
+      if (q.f !== "rc") { on.add("Incendie"); on.add("Vol"); }
+      if (q.f === "tr") { on.add("Dommages collision"); on.add("Tous dommages"); on.add("Bris de glace"); }
       if (ins.f >= 1.04 || ins.feats.some((f) => f.includes("Bris"))) on.add("Bris de glace");
       if (ins.feats.some((f) => f.includes("24/7"))) on.add("Assistance 0 km");
-      return { id: "ins" + i, p: ins.p, name: FORM[st.f], price, rating: ins.rating, claims: ins.claims, feats: ins.feats, on };
+      return { id: "ins" + i, p: ins.p, name: FORM[q.f], price: Math.round(basePrem * ins.f * (0.96 + r() * 0.08)), rating: ins.rating, claims: parseInt(ins.claims), feats: ins.feats, on };
     });
-    cmpSetup("assurance", "assurance auto", [
-      ["Prime annuelle", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Par mois", (o) => ({ n: o.price, t: tnd(o.price / 12) }), "min"],
-      ["Satisfaction", (o) => ({ n: o.rating, t: o.rating.toFixed(1) + " / 5" }), "max"], ["Délai moyen d'indemnisation", (o) => o.claims],
-      ...GUAR.map((g) => [g, (o) => ({ n: o.on.has(g) ? 1 : 0, t: o.on.has(g) ? "✅" : "—" })])
-    ]);
-    cmpPool(all);
-    const render = () => {
-      const list = all.slice().sort(st.sort === "price" ? (a, b) => a.price - b.price : (a, b) => b.rating - a.rating);
-      const cheap = Math.min(...list.map((o) => o.price)), max = Math.max(...list.map((o) => o.price));
-      $("#cnt").innerHTML = `${list.length} assureurs <small>· ${FORM[st.f]} · économie possible jusqu'à <b style="color:var(--ok)">${tnd(max - cheap)}</b>/an</small>`;
-      $("#res").innerHTML = list.map((o) => `
-        <article class="offer fade-in ${o.price === cheap ? "top1" : ""}">
-          <div class="main">
-            <div class="ribbons">${o.price === cheap ? '<span class="ribbon r-best">💰 Prime la plus basse</span>' : ""}${o.rating === Math.max(...list.map((x) => x.rating)) ? '<span class="ribbon r-ok">🏆 Clients les plus satisfaits</span>' : ""}</div>
-            <div class="head">${badge(o.p)}<div><h3>${esc(o.p)}</h3><small>${esc(o.name)} · indemnisation ~${o.claims}</small></div><div style="margin-left:auto"><span class="score"><span class="pill">${o.rating.toFixed(1)}</span><small>/ 5</small></span></div></div>
-            <div class="ins-guar" style="margin-bottom:10px">${GUAR.map((g) => `<span class="${o.on.has(g) ? "on" : ""}">${o.on.has(g) ? "✓" : "✕"} ${g}</span>`).join("")}</div>
-            <ul class="feats">${o.feats.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-          </div>
-          <div class="side"><div><div class="price-big">${nf.format(o.price)}<sup>DT/an</sup></div><div class="price-sub">soit ${tnd(o.price / 12)} / mois</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${purl(o.p)}">Demander un devis →</a>${cmpChk(o.id)}</div>
-        </article>`).join("");
-    };
-    app.addEventListener("click", (e) => { const s = e.target.closest("[data-sort]"); if (s) { st.sort = s.dataset.sort; $$("[data-sort]", app).forEach((b) => b.classList.toggle("active", b === s)); render(); } });
-    render();
+    const form = `<form class="page-search form-grid" id="is">
+      <div class="field"><label>Puissance fiscale</label><select name="cv">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((n) => opt(n, n + " CV", q.cv)).join("")}</select></div>
+      <div class="field"><label>Valeur véhicule (DT)</label><input type="number" name="val" value="${q.val}" min="5000" step="1000"></div>
+      <div class="field"><label>Âge du véhicule</label><select name="vage">${[0, 1, 2, 3, 5, 8, 10, 15].map((n) => opt(n, n ? n + " ans" : "Neuf", q.vage)).join("")}</select></div>
+      <div class="field"><label>Âge conducteur</label><input type="number" name="age" value="${q.age}" min="18" max="90"></div>
+      <div class="field"><label>Années de permis</label><input type="number" name="lic" value="${q.lic}" min="0" max="70"></div>
+      <div class="field"><label>Gouvernorat</label><select name="gov">${D.governorates.map((g) => opt(g, g, q.gov)).join("")}</select></div>
+      <div class="field"><label>Formule</label><select name="f">${Object.entries(FORM).map(([k, v]) => opt(k, v, q.f)).join("")}</select></div>
+      <button class="btn btn-primary">${icon("calc")}Recalculer</button></form>`;
+    const pMax = Math.max(...items.map((o) => o.price)), pMin = Math.min(...items.map((o) => o.price));
+    listPage({
+      key: "assurance", icon: "shield", title: "Assurance auto", crumb: "Assurance auto", cmpTitle: "assurance auto",
+      sub: `${FORM[q.f]} · ${q.cv} CV · véhicule de ${nf.format(q.val)} DT · conducteur ${q.age} ans`,
+      searchForm: form, items, countText: (n) => `${n} assureurs <small>· économie possible jusqu'à <b style="color:var(--ok)">${tnd(pMax - pMin)}</b>/an</small>`,
+      price: (o) => o.price, costLabel: "par an",
+      perf: { label: "Le plus couvrant", icon: "shield", get: (o) => o.on.size + o.rating / 10, text: (o) => `${o.on.size} garanties sur ${GUAR.length} · ${o.rating}/5` },
+      label: (o) => o.p, sublabel: (o) => o.name,
+      criteria: [{ k: "price", label: "Prix", get: (o) => o.price, better: "min", def: 4 }, { k: "rating", label: "Satisfaction clients", get: (o) => o.rating, better: "max", def: 3 }, { k: "guar", label: "Garanties", get: (o) => o.on.size, better: "max", def: 3 }, { k: "claims", label: "Rapidité d'indemnisation", get: (o) => o.claims, better: "min", def: 2 }],
+      presets: [{ label: "Équilibré", w: { price: 4, rating: 3, guar: 3, claims: 2 } }, { label: "Prix avant tout", w: { price: 5, rating: 1, guar: 1, claims: 0 } }, { label: "Protection maximale", w: { price: 1, rating: 3, guar: 5, claims: 3 } }, { label: "Service client", w: { price: 2, rating: 5, guar: 2, claims: 5 } }],
+      filters: [
+        { key: "rating", type: "select", label: "Satisfaction minimum", options: [[0, "Toutes"], [4, "4/5 et plus"], [4.2, "4,2/5 et plus"]], def: "0", test: (o, v) => o.rating >= +v, chip: (v) => `Satisfaction ≥ ${v}` },
+        { key: "glass", type: "toggle", label: "Bris de glace inclus", test: (o) => o.on.has("Bris de glace") },
+        { key: "assist", type: "toggle", label: "Assistance 24/7", test: (o) => o.on.has("Assistance 0 km") },
+        { key: "max", type: "range", label: "Prime max", min: Math.floor(pMin / 50) * 50, max: Math.ceil(pMax / 50) * 50, step: 10, mode: "max", get: (o) => o.price, fmt: (v) => v + " DT" },
+        { key: "ins", type: "checks", label: "Assureurs", options: D.insurers.map((i) => i.p), get: (o) => o.p }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.price - b.price, "tag"], ["rating", "Satisfaction", (a, b) => b.rating - a.rating, "star"]],
+      card: (o) => `<div class="head">${badge(o.p)}<div><h3>${esc(o.p)}</h3><small>${esc(o.name)} · indemnisation ~${o.claims} j</small></div></div>
+        <div class="meters">${meter("Satisfaction", (o.rating / 5) * 100, o.rating.toFixed(1) + " / 5")}${meter("Garanties", (o.on.size / GUAR.length) * 100, o.on.size + " / " + GUAR.length)}</div>
+        <div class="ins-guar">${GUAR.map((g) => `<span class="${o.on.has(g) ? "on" : ""}">${icon(o.on.has(g) ? "check" : "x")}${g}</span>`).join("")}</div>${feats(o.feats)}`,
+      details: (o) => `<table><tr><td>Prime annuelle estimée</td><td>${tnd(o.price)}</td></tr><tr><td>Paiement mensuel équivalent</td><td>${tnd(o.price / 12)}</td></tr><tr><td>Écart avec l'offre la moins chère</td><td>${o.price === pMin ? "—" : "+" + tnd(o.price - pMin)}</td></tr><tr class="total"><td>Sur 3 ans</td><td>${tnd(o.price * 3)}</td></tr></table>`,
+      side: (o) => `<div><div class="price-big">${nf.format(o.price)}<sup>DT/an</sup></div><div class="price-sub">soit <b>${tnd(o.price / 12)}</b> / mois</div></div>`,
+      cta: "Demander un devis", url: (o) => purl(o.p), fav: (o) => ({ title: o.p, sub: o.name, price: tnd(o.price) + "/an" }),
+      compare: [
+        { g: "Prix" }, ["Prime annuelle", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Par mois", (o) => ({ n: o.price, t: tnd(o.price / 12) }), "min", false],
+        { g: "Service" }, ["Satisfaction", (o) => ({ n: o.rating, t: o.rating.toFixed(1) + " / 5" }), "max"], ["Délai d'indemnisation", (o) => ({ n: o.claims, t: o.claims + " jours" }), "min"],
+        { g: "Garanties" }, ...GUAR.map((g) => [g, (o) => yes(o.on.has(g)), "max", false]),
+        { g: "Plus" }, ["Avantages", (o) => o.feats.join(" · ")]
+      ],
+      after: () => $("#is").addEventListener("submit", (e) => { e.preventDefault(); go("assurance-auto", Object.fromEntries(new FormData(e.target).entries())); })
+    }, params, path);
   }
 
   /* =========================================================
      LOCATION VOITURE
      ========================================================= */
-  function carPage(params) {
+  function carPage(params, path) {
     document.title = "Location de voiture en Tunisie — comparez les loueurs | Qarin.tn";
     const spot = D.rentalSpots.includes(params.get("spot")) ? params.get("spot") : D.rentalSpots[0];
     const start = validDate(params.get("start")) && params.get("start") >= inDays(0) ? params.get("start") : inDays(14);
     const end = validDate(params.get("end")) && params.get("end") > start ? params.get("end") : addDays(start, 7);
     const days = daysBetween(start, end), young = params.get("young") === "1";
     const season = [0.8, 0.8, 0.9, 1, 1.05, 1.25, 1.5, 1.55, 1.15, 1, 0.85, 1.1][new Date(start + "T00:00:00").getMonth()];
-    const CATS = D.carCats.map((c) => c.name), AG = D.rentals.map((a) => a.p);
-    const all = [];
+    const items = [];
     D.carCats.forEach((c) => D.rentals.forEach((a) => {
       const r = rng(hashStr(c.id + a.p + spot + start));
-      if (r() < 0.22) return; // tous les loueurs n'ont pas toutes les catégories
+      if (r() < 0.22) return;
       const day = Math.round(c.base * a.f * season * (0.9 + r() * 0.25) * (days >= 7 ? 0.88 : days >= 3 ? 0.95 : 1) + (young ? 15 : 0));
-      all.push({ id: c.id + a.p, p: a.p, name: c.name, cat: c, day, total: day * days, feats: a.feats, franchise: a.franchise, auto: c.id === "lux" || c.id === "suv" ? r() < 0.7 : r() < 0.25 });
+      items.push({ id: c.id + "-" + a.p.toLowerCase(), p: a.p, name: c.name, cat: c, day, total: day * days, feats: a.feats, franchise: a.franchise, cancel: a.feats.includes("Annulation gratuite"), auto: c.id === "lux" || c.id === "suv" ? r() < 0.7 : r() < 0.25 });
     }));
-    const st = { cats: new Set(CATS), ags: new Set(AG), auto: false, sort: "price" };
-    app.innerHTML = pageHead("🔑", "Location de voiture", `${spot} · ${frDate(start)} → ${frDate(end)} · ${days} jour${days > 1 ? "s" : ""}`, "Location voiture") + `
-    <div class="container"><form class="page-search form-grid" id="cs">
+    const dMax = Math.ceil(Math.max(...items.map((o) => o.day)) / 10) * 10, dMin = Math.floor(Math.min(...items.map((o) => o.day)) / 10) * 10;
+    const form = `<form class="page-search form-grid" id="cs">
       <div class="field"><label>Lieu de prise</label><select name="spot">${D.rentalSpots.map((s) => opt(s, s, spot)).join("")}</select></div>
       <div class="field"><label>Prise</label><input type="date" name="start" value="${start}" min="${inDays(0)}"></div>
       <div class="field"><label>Retour</label><input type="date" name="end" value="${end}" min="${inDays(1)}"></div>
       <div class="field"><label>Conducteur</label><select name="young">${opt("0", "25 ans et plus", young ? "1" : "0")}${opt("1", "Moins de 25 ans", young ? "1" : "0")}</select></div>
-      <button class="btn btn-primary">Rechercher</button>
-    </form>
-    <div class="layout">
-      <aside class="filters"><form>
-        <h3>Filtres <button type="button" data-reset>Réinitialiser</button></h3>
-        <div class="fgroup"><b>Catégorie</b>${checks("cat", CATS, st.cats)}</div>
-        <div class="fgroup"><b>Boîte</b><label class="check"><input type="checkbox" name="auto"> Automatique uniquement</label></div>
-        <div class="fgroup"><b>Loueurs</b>${checks("ag", AG, st.ags)}</div>
-      </form></aside>
-      <div>${DISCLAIMER}
-        <div class="results-bar"><div class="count" id="cnt"></div>${sortBar([["price", "💰 Prix"], ["franchise", "🛡️ Franchise"]], st.sort)}<button class="btn btn-ghost toggle-filters">⚙️ Filtres</button></div>
-        <div id="res"></div></div>
-    </div></div>`;
-    $("#cs").addEventListener("submit", (e) => { e.preventDefault(); go("location-voiture", Object.fromEntries(new FormData(e.target).entries())); });
-    const read = (f) => { st.cats = readChecks(f, "cat"); st.ags = readChecks(f, "ag"); st.auto = f.auto.checked; };
-    const render = () => {
-      const list = all.filter((o) => st.cats.has(o.name) && st.ags.has(o.p) && (!st.auto || o.auto)).sort(st.sort === "price" ? (a, b) => a.day - b.day : (a, b) => a.franchise - b.franchise || a.day - b.day);
-      $("#cnt").innerHTML = `${list.length} véhicules <small>disponibles</small>`;
-      if (!list.length) { $("#res").innerHTML = emptyBox(); return; }
-      const cheap = Math.min(...list.map((o) => o.day));
-      $("#res").innerHTML = list.map((o) => `
-        <article class="offer fade-in ${o.day === cheap ? "top1" : ""}">
-          <div class="main">
-            <div class="ribbons">${o.day === cheap ? '<span class="ribbon r-best">💰 Le moins cher</span>' : ""}<span class="ribbon r-info">${o.auto ? "Automatique" : "Manuelle"}</span></div>
-            <div class="head">${badge(o.p)}<div><h3>${esc(o.name)} <small style="font-weight:500">ou similaire</small></h3><small>${esc(o.cat.ex)} · ${esc(o.p)}</small></div></div>
-            <div class="specs"><div class="spec"><small>Places</small><b>${o.cat.seats}</b></div><div class="spec"><small>Bagages</small><b>${o.cat.bags}</b></div><div class="spec"><small>Franchise</small><b>${tnd(o.franchise)}</b></div><div class="spec"><small>Clim</small><b>Oui</b></div></div>
-            <ul class="feats">${o.feats.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-          </div>
-          <div class="side"><div><div class="price-big">${nf.format(o.day)}<sup>DT/jour</sup></div><div class="price-sub"><b>${tnd(o.total)}</b> pour ${days} jour${days > 1 ? "s" : ""}</div></div>
-            <a class="btn btn-primary" target="_blank" rel="noopener nofollow" href="${purl(o.p)}">Réserver →</a></div>
-        </article>`).join("");
-    };
-    wireList(app, st, render, read);
-    render();
+      <button class="btn btn-primary">${icon("search")}Rechercher</button></form>`;
+    listPage({
+      key: "voiture", icon: "key", title: "Location de voiture", crumb: "Location voiture", cmpTitle: "location de voiture", unit: "véhicules",
+      sub: `${esc(spot)} · ${frDate(start)} → ${frDate(end)} · ${days} jour${days > 1 ? "s" : ""}`,
+      searchForm: form, items, price: (o) => o.day, cost: (o) => o.total, costLabel: "sur la location",
+      perf: { label: "Le plus spacieux", icon: "users", get: (o) => o.cat.seats * 10 + o.cat.bags, text: (o) => `${o.cat.seats} places · ${o.cat.bags} bagages` },
+      label: (o) => `${o.name} · ${o.p}`, sublabel: (o) => o.cat.ex,
+      criteria: [{ k: "price", label: "Prix", get: (o) => o.day, better: "min", def: 4 }, { k: "fr", label: "Franchise basse", get: (o) => o.franchise, better: "min", def: 2 }, { k: "flex", label: "Annulation gratuite", get: (o) => (o.cancel ? 1 : 0), better: "max", def: 2 }, { k: "space", label: "Espace", get: (o) => o.cat.seats + o.cat.bags, better: "max", def: 1 }],
+      presets: [{ label: "Équilibré", w: { price: 4, fr: 2, flex: 2, space: 1 } }, { label: "Le moins cher", w: { price: 5, fr: 0, flex: 0, space: 0 } }, { label: "Famille", w: { price: 2, fr: 2, flex: 2, space: 5 } }, { label: "Sérénité", w: { price: 2, fr: 5, flex: 4, space: 1 } }],
+      filters: [
+        { key: "cat", type: "checks", label: "Catégorie", options: D.carCats.map((c) => c.name), get: (o) => o.name },
+        { key: "auto", type: "toggle", label: "Boîte automatique", test: (o) => o.auto },
+        { key: "cancel", type: "toggle", label: "Annulation gratuite", test: (o) => o.cancel },
+        { key: "max", type: "range", label: "Prix max / jour", min: dMin, max: dMax, step: 5, mode: "max", get: (o) => o.day, fmt: (v) => v + " DT" },
+        { key: "ag", type: "checks", label: "Loueurs", options: D.rentals.map((a) => a.p), get: (o) => o.p }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.day - b.day, "tag"], ["fr", "Franchise", (a, b) => a.franchise - b.franchise || a.day - b.day, "shield"]],
+      ribbons: (o) => `<span class="ribbon r-info">${o.auto ? "Automatique" : "Manuelle"}</span>` + (o.cancel ? `<span class="ribbon r-ok">${icon("check")}Annulation gratuite</span>` : ""),
+      card: (o) => `<div class="head">${badge(o.p)}<div><h3>${esc(o.name)} <small style="font-weight:600">ou similaire</small></h3><small>${esc(o.cat.ex)} · ${esc(o.p)}</small></div></div>
+        <div class="specs">${spec("Places", o.cat.seats)}${spec("Bagages", o.cat.bags)}${spec("Franchise", tnd(o.franchise))}${spec("Clim", "Oui")}</div>${feats(o.feats)}`,
+      details: (o) => `<table><tr><td>${days} jour${days > 1 ? "s" : ""} × ${tnd(o.day)}</td><td>${tnd(o.total)}</td></tr>${young ? `<tr><td>Dont supplément jeune conducteur</td><td>${tnd(15 * days)}</td></tr>` : ""}<tr><td>Franchise (dépôt)</td><td>${tnd(o.franchise)}</td></tr><tr class="total"><td>Total location</td><td>${tnd(o.total)}</td></tr></table>`,
+      side: (o) => `<div><div class="price-big">${nf.format(o.day)}<sup>DT/jour</sup></div><div class="price-sub"><b>${tnd(o.total)}</b> pour ${days} jour${days > 1 ? "s" : ""}</div></div>`,
+      cta: "Réserver", url: (o) => purl(o.p), fav: (o) => ({ title: `${o.name} · ${o.p}`, sub: `${spot} · ${days} j`, price: tnd(o.day) + "/jour" }),
+      compare: [
+        { g: "Prix" }, ["Prix / jour", (o) => ({ n: o.day, t: tnd(o.day) }), "min"], ["Total location", (o) => ({ n: o.total, t: tnd(o.total) }), "min"], ["Franchise", (o) => ({ n: o.franchise, t: tnd(o.franchise) }), "min"],
+        { g: "Véhicule" }, ["Exemples", (o) => o.cat.ex], ["Places", (o) => ({ n: o.cat.seats, t: o.cat.seats }), "max", false], ["Bagages", (o) => ({ n: o.cat.bags, t: o.cat.bags }), "max", false], ["Boîte", (o) => (o.auto ? "Automatique" : "Manuelle")],
+        { g: "Conditions" }, ["Annulation gratuite", (o) => yes(o.cancel), "max", false], ["Inclus", (o) => o.feats.join(" · ")]
+      ],
+      after: () => $("#cs").addEventListener("submit", (e) => { e.preventDefault(); go("location-voiture", Object.fromEntries(new FormData(e.target).entries())); })
+    }, params, path);
   }
 
   /* =========================================================
-     PAGES STATIQUES
+     PAGES SIMPLES
      ========================================================= */
+  function favPage() {
+    document.title = "Mes favoris — Qarin.tn";
+    const list = Object.entries(FAV).sort((a, b) => b[1].t - a[1].t);
+    app.innerHTML = pageHead("heart", "Mes favoris", "Vos offres sauvegardées sur cet appareil.", "Favoris") + `<div class="container" style="padding:28px 20px 70px">${list.length ? `<div class="fav-list">${list.map(([k, f]) => `<div class="fav-item">${f.badge || ""}<div><b>${esc(f.title)}</b><small>${esc(f.cat)} · ${esc(f.sub)}</small><a href="${esc(f.route)}" style="font-size:13px;font-weight:700">Revoir la recherche</a></div><div class="pr">${esc(f.price)}</div><div class="rm" style="display:flex;gap:6px"><a class="btn btn-primary btn-sm" href="${esc(f.url)}" target="_blank" rel="noopener nofollow">Voir</a><button type="button" class="btn btn-ghost btn-sm" data-unfav="${esc(k)}" aria-label="Supprimer">${icon("trash")}</button></div></div>`).join("")}</div>` : `<div class="empty">${icon("heart")}<b>Aucun favori pour l'instant</b>Cliquez sur « Sauver » sur une offre pour la retrouver ici.<div style="margin-top:14px"><a class="btn btn-brand btn-sm" href="#/internet">Commencer à comparer</a></div></div>`}</div>`;
+    app.addEventListener("click", (e) => { const b = e.target.closest("[data-unfav]"); if (b) { delete FAV[b.dataset.unfav]; LS.set("qarin-favs", FAV); favCount(); router(); } });
+  }
   function aboutPage() {
     document.title = "À propos — Qarin.tn";
-    app.innerHTML = pageHead("💡", "À propos de Qarin.tn", "Notre mission : rendre les prix transparents en Tunisie.", "À propos") + `<div class="container"><div class="prose">
+    app.innerHTML = pageHead("info", "À propos de Qarin.tn", "Notre mission : rendre les prix transparents en Tunisie.", "À propos") + `<div class="container"><div class="prose">
       <h2>Notre mission</h2><p><b>Qarin</b> (قارن, « compare ! ») aide les consommateurs tunisiens à comparer en quelques secondes les offres Internet, mobiles, voyages, assurances et location de voiture. Un seul endroit, des critères clairs, aucune inscription.</p>
-      <h2>Comment nous classons les offres</h2><p>Par défaut, les offres sont triées par <b>score Qarin</b>, un indicateur qualité/prix calculé de la même façon pour tous les fournisseurs. Vous pouvez à tout moment trier par prix, débit, durée ou note. Aucun fournisseur ne peut acheter une meilleure place dans le classement.</p>
+      <h2>Comment nous classons les offres</h2><p>Chaque offre reçoit un <b>score sur 10</b> calculé à partir de plusieurs critères (prix, performance, flexibilité, service…). Par défaut, les critères ont une pondération équilibrée ; avec « Mes priorités », vous décidez vous-même de leur importance. Le même calcul s'applique à tous les fournisseurs : aucun ne peut acheter une meilleure place.</p>
       <h2>Comment le site est financé</h2><p>Le service est gratuit. À terme, Qarin.tn pourra percevoir une commission de certains partenaires lorsqu'une souscription est réalisée via le site. Cette commission n'a aucun impact sur le prix que vous payez ni sur le classement.</p>
-      <h2>Fiabilité des données</h2><p>Les tarifs sont des <b>estimations indicatives</b> établies à partir des grilles publiques des fournisseurs et de modèles de saisonnalité (vols, hôtels, location). Ils sont mis à jour régulièrement mais peuvent différer du prix final : vérifiez toujours l'offre sur le site du fournisseur avant de souscrire.</p>
-      <h2>Vous êtes fournisseur ?</h2><p>Opérateurs, assureurs, hôtels, agences : pour faire corriger ou ajouter une offre, contactez-nous via la page GitHub du projet.</p>
-    </div></div>`;
+      <h2>Fiabilité des données</h2><p>Les tarifs sont des <b>estimations indicatives</b> établies à partir des grilles publiques des fournisseurs et de modèles de saisonnalité (vols, hôtels, location). Vérifiez toujours l'offre sur le site du fournisseur avant de souscrire.</p>
+      <h2>Vous êtes fournisseur ?</h2><p>Opérateurs, assureurs, hôtels, agences : pour faire corriger ou ajouter une offre, contactez-nous via la page GitHub du projet.</p></div></div>`;
   }
   function legalPage() {
     document.title = "Mentions légales — Qarin.tn";
-    app.innerHTML = pageHead("📄", "Mentions légales & confidentialité", "Informations légales et protection des données.", "Mentions légales") + `<div class="container"><div class="prose">
-      <h2>Éditeur</h2><p>Qarin.tn est un service de comparaison indépendant. Il n'est affilié à aucun des fournisseurs cités. Les noms de marques cités appartiennent à leurs propriétaires respectifs et ne sont utilisés qu'à des fins d'identification.</p>
-      <h2>Données personnelles</h2><p>Le site ne demande aucune inscription et ne collecte aucune donnée personnelle. Vos critères de recherche sont traités uniquement dans votre navigateur. Aucun cookie publicitaire n'est utilisé.</p>
+    app.innerHTML = pageHead("file", "Mentions légales & confidentialité", "Informations légales et protection des données.", "Mentions légales") + `<div class="container"><div class="prose">
+      <h2>Éditeur</h2><p>Qarin.tn est un service de comparaison indépendant, affilié à aucun des fournisseurs cités. Les marques citées appartiennent à leurs propriétaires respectifs et ne sont utilisées qu'à des fins d'identification.</p>
+      <h2>Données personnelles</h2><p>Le site ne demande aucune inscription et ne collecte aucune donnée personnelle. Vos critères, priorités et favoris sont enregistrés uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire n'est utilisé.</p>
       <h2>Liens externes</h2><p>Les boutons « Voir l'offre » vous redirigent vers les sites des fournisseurs ou de partenaires de réservation, qui appliquent leurs propres conditions et politiques de confidentialité.</p>
-      <h2>Responsabilité</h2><p>Les informations sont fournies à titre indicatif. Qarin.tn ne saurait être tenu responsable d'un écart entre les prix affichés et les prix pratiqués par les fournisseurs.</p>
-    </div></div>`;
+      <h2>Responsabilité</h2><p>Les informations sont fournies à titre indicatif. Qarin.tn ne saurait être tenu responsable d'un écart entre les prix affichés et les prix pratiqués par les fournisseurs.</p></div></div>`;
   }
   function notFound() {
     document.title = "Page introuvable — Qarin.tn";
-    app.innerHTML = `<div class="container" style="padding:80px 0;text-align:center"><h1 style="font-size:60px;margin:0">404</h1><p>Cette page n'existe pas.</p><a class="btn btn-primary" href="#/">Retour à l'accueil</a></div>`;
+    app.innerHTML = `<div class="container" style="padding:90px 0;text-align:center"><h1 style="font-size:72px;margin:0;letter-spacing:-3px">404</h1><p class="muted">Cette page n'existe pas.</p><a class="btn btn-primary" href="#/">Retour à l'accueil</a></div>`;
   }
 
-  /* ---------- routeur ---------- */
-  const routes = { "": home, internet: internetPage, mobile: mobilePage, vols: flightsPage, hotels: hotelsPage, "assurance-auto": insurancePage, "location-voiture": carPage, "a-propos": aboutPage, mentions: legalPage };
+  /* ================= routeur ================= */
+  const routes = { "": home, internet: internetPage, mobile: mobilePage, vols: flightsPage, hotels: hotelsPage, "assurance-auto": insurancePage, "location-voiture": carPage, favoris: favPage, "a-propos": aboutPage, mentions: legalPage };
   function router() {
-    const h = location.hash.replace(/^#\/?/, "");
-    const [path, qs] = h.split("?");
+    const [path, qs] = location.hash.replace(/^#\/?/, "").split("?");
     const fn = routes[path] || notFound;
-    cmp.cat = null; cmp.ids = [];
-    const fresh = app.cloneNode(false); app.replaceWith(fresh); app = fresh; // supprime les anciens listeners
-    try { fn(new URLSearchParams(qs || "")); } catch (err) { console.error(err); notFound(); }
+    cmp.cfg = null; cmp.ids = []; closeModal();
+    const fresh = app.cloneNode(false); app.replaceWith(fresh); app = fresh;
+    try { fn(new URLSearchParams(qs || ""), path); } catch (err) { console.error(err); notFound(); }
     renderCmpBar();
-    $$("nav.main a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#/" + path && path !== ""));
+    $$("nav.main a").forEach((a) => a.classList.toggle("active", path !== "" && a.getAttribute("href") === "#/" + path));
     $("nav.main").classList.remove("open");
     window.scrollTo(0, 0);
   }
 
+  /* ================= initialisation ================= */
+  $$("nav.main a[data-ic]").forEach((a) => a.insertAdjacentHTML("afterbegin", icon(a.dataset.ic)));
+  $("#favBtn").insertAdjacentHTML("afterbegin", icon("heart"));
+  $(".burger").innerHTML = icon("menu");
+  $("#toTop").innerHTML = icon("arrowUp");
+  $("#cmpClear").innerHTML = icon("x");
+  $("#cmpGo").insertAdjacentHTML("afterbegin", icon("scale"));
+  setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+  $("#themeBtn").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  favCount();
   $("#cmpGo").addEventListener("click", openCompare);
-  $("#cmpClear").addEventListener("click", () => { cmp.ids = []; $$("[data-cmp]").forEach((c) => (c.checked = false)); renderCmpBar(); });
-  $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal" || e.target.closest(".close")) $("#modal").classList.remove("show"); });
-  document.addEventListener("keydown", (e) => e.key === "Escape" && $("#modal").classList.remove("show"));
+  $("#cmpClear").addEventListener("click", () => { cmp.ids = []; refreshCmpUI(); });
+  $("#cmpBar").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) toggleCmp(b.dataset.rm); });
+  $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal" || e.target.closest(".close")) closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModal(); const f = $(".filters.open"); if (f) { f.classList.remove("open"); $("#ovl").classList.remove("show"); } } });
   $(".burger").addEventListener("click", () => $("nav.main").classList.toggle("open"));
+  $("#toTop").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  window.addEventListener("scroll", () => $("#toTop").classList.toggle("show", window.scrollY > 700), { passive: true });
   $("#year").textContent = new Date().getFullYear();
   window.addEventListener("hashchange", router);
   router();
