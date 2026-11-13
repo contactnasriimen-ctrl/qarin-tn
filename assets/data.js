@@ -170,5 +170,95 @@ window.QDATA = (function () {
   const fiberGov = ["Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Sousse", "Monastir", "Sfax", "Bizerte", "Mahdia", "Médenine"];
   const g5Gov = ["Tunis", "Ariana", "Ben Arous", "Manouba", "Sousse", "Sfax", "Nabeul", "Monastir"];
 
-  return { providers, internet, mobile, airportsTN, destinations, directAirlines, hubs, airlineFactor, cities, hotelTypes, cityFactor, nameBits, insurers, carCats, rentals, rentalSpots, governorates, fiberGov, g5Gov };
+  rentalSpots.push("Aéroport Tozeur");
+
+  /* ---------- statut des données (transparence / conformité) ----------
+     mode "demo"  : prix fictifs ou estimés -> bandeau + mention sur chaque prix
+     mode "live"  : chaque offre doit porter src (URL officielle) + checked (date du relevé) */
+  const meta = {
+    mode: "demo",
+    updated: "2026-11-13",
+    eurTnd: 3.4,   // taux EUR/TND de référence (à mettre à jour)
+    tmm: 7.5,      // TMM de référence en % (à mettre à jour)
+    reportUrl: "https://github.com/contactnasriimen-ctrl/qarin-tn/issues/new",
+    cats: {
+      internet: { status: "Démo", origin: "Grilles approximatives saisies manuellement", real: "Relevé des tarifs publics sur les sites des opérateurs (source + date), ou flux fourni par l'opérateur" },
+      mobile: { status: "Démo", origin: "Grilles approximatives saisies manuellement", real: "Relevé des tarifs publics des opérateurs, ou accord de flux de données" },
+      vols: { status: "Démo", origin: "Prix calculés par un modèle (distance, saison, jour)", real: "API d'affiliation (ex. Travelpayouts / Aviasales, Skyscanner Partners, Kiwi Tequila)" },
+      hotels: { status: "Démo", origin: "Établissements fictifs, prix modélisés", real: "Programme d'affiliation (ex. Booking.com Affiliate, Expedia Group, Hotelbeds)" },
+      ferry: { status: "Démo", origin: "Prix modélisés par traversée", real: "Accord avec les compagnies ou une plateforme de réservation maritime (ex. Ferryhopper, Direct Ferries)" },
+      voiture: { status: "Démo", origin: "Prix modélisés par catégorie", real: "Affiliation (ex. DiscoverCars, Rentalcars) ou partenariat avec des agences locales" },
+      assurance: { status: "Démo", origin: "Estimation par formule, non fournie par les assureurs", real: "Partenariat avec les compagnies ou un courtier agréé (CGA) — un devis reste fait par l'assureur" },
+      credit: { status: "Démo", origin: "Simulation TMM + marge indicative", real: "Conditions publiées par les banques, ou partenariat ; la simulation reste non contractuelle" },
+      transfert: { status: "Démo", origin: "Frais et marges de change indicatifs", real: "API ou programme d'affiliation des services de transfert, taux du jour" }
+    }
+  };
+
+  Object.assign(providers, {
+    "Wise": { short: "WI", color: "#163300", url: "https://wise.com" },
+    "Western Union": { short: "WU", color: "#1a1a1a", url: "https://www.westernunion.com" },
+    "MoneyGram": { short: "MG", color: "#da291c", url: "https://www.moneygram.com" },
+    "Ria": { short: "RI", color: "#ff6600", url: "https://www.riamoneytransfer.com" },
+    "Remitly": { short: "RE", color: "#2f3d7c", url: "https://www.remitly.com" },
+    "WorldRemit": { short: "WR", color: "#6c2c91", url: "https://www.worldremit.com" },
+    "La Poste (mandat)": { short: "LP", color: "#003da5", url: "https://www.laposte.fr" },
+    "Virement bancaire": { short: "VB", color: "#475569", url: "#" },
+    "CTN": { short: "CT", color: "#c8102e", url: "https://www.ctn.com.tn" },
+    "Corsica Linea": { short: "CL", color: "#0077b6", url: "https://www.corsicalinea.com" },
+    "GNV": { short: "GN", color: "#00205b", url: "https://www.gnv.it" },
+    "Grimaldi Lines": { short: "GR", color: "#0055a4", url: "https://www.grimaldi-lines.com" },
+    "BIAT": { short: "BI", color: "#003a70", url: "https://www.biat.com.tn" },
+    "Attijari bank": { short: "AB", color: "#d9690b", url: "https://www.attijaribank.com.tn" },
+    "Amen Bank": { short: "AM", color: "#00843d", url: "https://www.amenbank.com.tn" },
+    "BH Bank": { short: "BH", color: "#005baa", url: "https://www.bh.com.tn" },
+    "STB": { short: "ST", color: "#00539f", url: "https://www.stb.com.tn" },
+    "BNA": { short: "BN", color: "#007a33", url: "https://www.bna.tn" },
+    "UIB": { short: "UI", color: "#c8102e", url: "https://www.uib.com.tn" },
+    "Banque de Tunisie": { short: "BT", color: "#1d4f91", url: "https://www.bt.com.tn" },
+    "Zitouna Banque": { short: "ZB", color: "#00965e", url: "https://www.banquezitouna.com" }
+  });
+
+  const transfer = [
+    { p: "Wise", fee: (a) => 0.45 + a * 0.0055, margin: 0, modes: ["compte"], speed: "Quelques heures", speedH: 4, feats: ["Taux de change réel", "Suivi en ligne"] },
+    { p: "Western Union", fee: () => 4.9, margin: 0.018, modes: ["compte", "especes"], speed: "Quelques minutes", speedH: 0.2, feats: ["Réseau d'agences dense", "Retrait en espèces"] },
+    { p: "MoneyGram", fee: () => 3.99, margin: 0.019, modes: ["compte", "especes"], speed: "Quelques minutes", speedH: 0.2, feats: ["Retrait en espèces", "Application mobile"] },
+    { p: "Ria", fee: () => 2.99, margin: 0.015, modes: ["compte", "especes"], speed: "Quelques minutes", speedH: 0.3, feats: ["Retrait en espèces", "Agences en Europe"] },
+    { p: "Remitly", fee: (a) => (a >= 500 ? 0 : 1.99), margin: 0.012, modes: ["compte", "especes"], speed: "Quelques heures", speedH: 3, feats: ["Frais offerts dès 500 €", "Garantie de délai"] },
+    { p: "WorldRemit", fee: () => 2.99, margin: 0.016, modes: ["compte", "especes"], speed: "Quelques heures", speedH: 2, feats: ["Application mobile", "Suivi en ligne"] },
+    { p: "La Poste (mandat)", fee: (a) => 5.5 + a * 0.01, margin: 0.025, modes: ["poste"], speed: "2 à 4 jours", speedH: 72, feats: ["Retrait en bureau de poste", "Sans compte bancaire"] },
+    { p: "Virement bancaire", fee: (a) => 15 + a * 0.001, margin: 0.01, modes: ["compte"], speed: "2 à 5 jours", speedH: 96, feats: ["Depuis votre banque", "Montants élevés"] }
+  ];
+
+  const ferryRoutes = [
+    { id: "MRS", port: "Marseille", ops: ["CTN", "Corsica Linea"], h: 22, base: 310 },
+    { id: "GOA", port: "Gênes", ops: ["CTN", "GNV"], h: 24, base: 290 },
+    { id: "CVV", port: "Civitavecchia", ops: ["Grimaldi Lines"], h: 21, base: 260 },
+    { id: "PMO", port: "Palerme", ops: ["GNV", "Grimaldi Lines"], h: 11, base: 190 },
+    { id: "SAL", port: "Salerne", ops: ["Grimaldi Lines"], h: 23, base: 240 }
+  ];
+  const ferryOps = {
+    "CTN": { f: 1, rating: 3.9, feats: ["Compagnie nationale", "Restauration à bord"] },
+    "Corsica Linea": { f: 1.08, rating: 4.1, feats: ["Navires récents", "Cabines climatisées"] },
+    "GNV": { f: 0.95, rating: 4.0, feats: ["Wi-Fi à bord", "Animations"] },
+    "Grimaldi Lines": { f: 0.97, rating: 4.0, feats: ["Piscine à bord (selon navire)", "Restaurants"] }
+  };
+
+  const banks = [
+    { p: "BIAT", m: 2.5, dossier: 0.006, ins: 0.0035, feats: ["Réseau d'agences étendu", "Réponse rapide"] },
+    { p: "Attijari bank", m: 2.6, dossier: 0.005, ins: 0.004, feats: ["Simulation en ligne"] },
+    { p: "Amen Bank", m: 2.7, dossier: 0.005, ins: 0.0035, feats: ["Banque en ligne"] },
+    { p: "BH Bank", m: 2.4, dossier: 0.007, ins: 0.004, immo: -0.3, feats: ["Spécialiste de l'habitat"] },
+    { p: "STB", m: 2.8, dossier: 0.005, ins: 0.0038, feats: ["Banque publique"] },
+    { p: "BNA", m: 2.6, dossier: 0.005, ins: 0.0036, feats: ["Banque publique"] },
+    { p: "UIB", m: 2.9, dossier: 0.004, ins: 0.0033, feats: ["Frais de dossier réduits"] },
+    { p: "Banque de Tunisie", m: 2.7, dossier: 0.006, ins: 0.0035, feats: ["Conseiller dédié"] },
+    { p: "Zitouna Banque", m: 3.0, dossier: 0.004, ins: 0.004, islamic: true, feats: ["Financement islamique (Mourabaha)"] }
+  ];
+  const loanTypes = {
+    immo: { label: "Crédit immobilier", extra: 0, max: 25, def: 150000, defY: 20 },
+    auto: { label: "Crédit auto", extra: 0.6, max: 7, def: 40000, defY: 5 },
+    conso: { label: "Crédit consommation", extra: 1.3, max: 5, def: 15000, defY: 3 }
+  };
+
+  return { meta, transfer, ferryRoutes, ferryOps, banks, loanTypes, providers, internet, mobile, airportsTN, destinations, directAirlines, hubs, airlineFactor, cities, hotelTypes, cityFactor, nameBits, insurers, carCats, rentals, rentalSpots, governorates, fiberGov, g5Gov };
 })();

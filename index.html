@@ -24,12 +24,13 @@
       <span>Qarin<span class="tld">.tn</span><small>Comparez. Économisez.</small></span>
     </a>
     <nav class="main" aria-label="Navigation principale">
-      <a href="#/internet" data-ic="wifi">Internet</a>
-      <a href="#/mobile" data-ic="phone">Mobile</a>
-      <a href="#/vols" data-ic="plane">Vols</a>
-      <a href="#/hotels" data-ic="hotel">Hôtels</a>
-      <a href="#/assurance-auto" data-ic="shield">Assurance</a>
-      <a href="#/location-voiture" data-ic="key">Location</a>
+      <div class="dd"><button type="button" class="dd-btn" data-ic="wifi" aria-expanded="false">Télécom</button>
+        <div class="menu"><a href="#/internet" data-ic="wifi">Internet<small>Fibre, VDSL, ADSL, box 4G/5G</small></a><a href="#/mobile" data-ic="phone">Forfaits mobiles<small>Data, appels, prix au Go</small></a></div></div>
+      <div class="dd"><button type="button" class="dd-btn" data-ic="plane" aria-expanded="false">Voyage</button>
+        <div class="menu"><a href="#/vols" data-ic="plane">Vols<small>Calendrier des prix</small></a><a href="#/hotels" data-ic="hotel">Hôtels<small>9 régions</small></a><a href="#/ferry" data-ic="ship">Ferry<small>Europe → Tunis avec voiture</small></a><a href="#/location-voiture" data-ic="key">Location de voiture<small>Aéroports & villes</small></a><a href="#/pack-voyage" data-ic="globe" class="hl">Pack vacances<small>Multi-domaines : coût porte-à-porte</small></a></div></div>
+      <div class="dd"><button type="button" class="dd-btn" data-ic="wallet" aria-expanded="false">Argent</button>
+        <div class="menu"><a href="#/assurance-auto" data-ic="shield">Assurance auto<small>Estimation par profil</small></a><a href="#/credit" data-ic="bank">Crédit<small>Immobilier, auto, consommation</small></a><a href="#/transfert" data-ic="send">Transfert d'argent<small>Europe → Tunisie</small></a></div></div>
+      <a href="#/budget-foyer" data-ic="home">Budget foyer</a>
     </nav>
     <div class="hdr-actions">
       <button type="button" class="icon-btn" id="themeBtn" aria-label="Changer de thème"></button>
@@ -38,6 +39,7 @@
     </div>
   </div></header>
 
+  <div class="demo-bar" id="demoBar" role="note" hidden><span><b>Version de démonstration</b> — les prix sont fictifs ou estimés et ne proviennent pas des fournisseurs cités. <a href="#/donnees">Nos données</a></span></div>
   <main id="app"><div class="container" style="padding:40px 0"><div class="skeleton"></div><div class="skeleton"></div></div></main>
 
   <footer class="site"><div class="container">
@@ -47,8 +49,9 @@
         <p>Le comparateur indépendant pour les consommateurs tunisiens. Score personnalisé, comparatif côte à côte, aucune inscription.</p>
       </div>
       <div><h4>Télécom</h4><a href="#/internet">Internet & Fibre</a><a href="#/internet?tech=5G%20Box">Box 5G</a><a href="#/mobile">Forfaits mobiles</a><a href="#/internet?assist=1">Assistant débit</a></div>
-      <div><h4>Voyage</h4><a href="#/vols">Vols</a><a href="#/hotels">Hôtels</a><a href="#/location-voiture">Location de voiture</a></div>
-      <div><h4>Qarin.tn</h4><a href="#/assurance-auto">Assurance auto</a><a href="#/favoris">Mes favoris</a><a href="#/a-propos">À propos</a><a href="#/mentions">Mentions légales</a></div>
+      <div><h4>Voyage</h4><a href="#/vols">Vols</a><a href="#/hotels">Hôtels</a><a href="#/ferry">Ferry</a><a href="#/location-voiture">Location de voiture</a><a href="#/pack-voyage">Pack vacances</a></div>
+      <div><h4>Argent & foyer</h4><a href="#/assurance-auto">Assurance auto</a><a href="#/credit">Crédit</a><a href="#/transfert">Transfert d'argent</a><a href="#/budget-foyer">Budget foyer</a></div>
+      <div><h4>Qarin.tn</h4><a href="#/donnees">Nos données</a><a href="#/favoris">Mes favoris</a><a href="#/a-propos">À propos</a><a href="#/mentions">Mentions légales</a></div>
     </div>
     <div class="legal"><span>© <span id="year"></span> Qarin.tn — Tarifs indicatifs, à confirmer auprès des fournisseurs.</span><span>Les marques citées appartiennent à leurs propriétaires respectifs.</span></div>
   </div></footer>

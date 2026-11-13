@@ -74,8 +74,19 @@
     globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
     bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
-    trend: '<path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>'
+    trend: '<path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>',
+    ship: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4M12 2v3"/>',
+    bank: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z"/>',
+    send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+    home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+    flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+    wallet: '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
+    alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+    database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>'
   };
+  const DEMO = D.meta.mode === "demo";
+  const reportLink = (what) => `${D.meta.reportUrl}?title=${encodeURIComponent("Erreur de données : " + what)}`;
+  const eur = (dt) => nf.format(Math.round(dt / D.meta.eurTnd)) + " €";
   const icon = (n, c) => `<svg class="i ${c || ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
 
   function badge(p) {
@@ -284,15 +295,16 @@
     }
     function cardShell(it, ctx) {
       const top = it.id === ctx.best, fav = isFav(cfg.key, it.id), inC = cmp.ids.includes(it.id), m = Math.round(it._m * 100);
-      const rib = (cfg.price(it) === ctx.cheapest ? `<span class="ribbon r-best">${icon("tag")}Prix le plus bas</span>` : "") + (cfg.ribbons ? cfg.ribbons(it, st) : "");
+      const rib = (cfg.price(it) === ctx.cheapest ? `<span class="ribbon r-best">${icon("tag")}${esc(cfg.cheapLabel || "Prix le plus bas")}</span>` : "") + (cfg.ribbons ? cfg.ribbons(it, st) : "");
       return `<article class="offer ${cfg.cardClass || ""} ${top ? "top1" : ""} ${inC ? "selected" : ""}" data-id="${esc(it.id)}">
         ${cfg.media ? cfg.media(it) : ""}
         <div class="main">${rib ? `<div class="ribbons">${rib}</div>` : ""}${cfg.card(it, st)}
           ${cfg.details ? `<button type="button" class="details-toggle" data-details>${icon("chev")}Détails &amp; calcul</button><div class="details" hidden>${cfg.details(it, st)}</div>` : ""}
+          <div class="card-foot">${it.src ? `<span>${icon("database")}Source : <a href="${esc(it.src)}" target="_blank" rel="noopener nofollow">site officiel</a>${it.checked ? " · relevé le " + esc(it.checked) : ""}</span>` : `<span>${icon("database")}${DEMO ? "Donnée de démonstration" : "Estimation"}</span>`}<a href="${esc(reportLink((cfg.label ? cfg.label(it) : it.name) + " (" + cfg.crumb + ")"))}" target="_blank" rel="noopener">${icon("flag")}Signaler une erreur</a></div>
         </div>
         <div class="side">
           <div><div class="scorebox"><span class="pill">${it._s.toFixed(1)}</span><small>${scoreLabel(it._s)}<br>${m} % pour vous</small></div><div class="matchbar"><i style="width:${m}%"></i></div></div>
-          ${cfg.side(it, st)}
+          ${cfg.side(it, st)}${DEMO ? '<span class="demo-tag">Prix de démonstration</span>' : ""}
           <a class="btn btn-primary" target="_blank" rel="noopener nofollow sponsored" href="${esc(cfg.url(it, st))}">${esc(cfg.cta || "Voir l'offre")}${icon("arrow")}</a>
           <div class="side-actions"><button type="button" class="fav-btn ${fav ? "on" : ""}" data-fav="${esc(it.id)}" aria-pressed="${fav}">${icon("heart")}<span>${fav ? "Sauvé" : "Sauver"}</span></button><button type="button" class="cmp-btn ${inC ? "on" : ""}" data-cmpt="${esc(it.id)}" aria-pressed="${inC}">${icon(inC ? "check" : "scale")}<span>Comparer</span></button></div>
         </div></article>`;
@@ -372,15 +384,17 @@
     const CATS = [
       ["internet", "wifi", "Internet", "Fibre, VDSL, ADSL, box 4G/5G", "#0ea5e9"], ["mobile", "phone", "Forfaits mobiles", "Ooredoo, Orange, Tunisie Telecom", "#8b5cf6"],
       ["vols", "plane", "Vols", `${D.destinations.length} destinations, 6 aéroports`, "#e63946"], ["hotels", "hotel", "Hôtels", `${D.cities.length} régions balnéaires & Sahara`, "#f59e0b"],
-      ["assurance-auto", "shield", "Assurance auto", `${D.insurers.length} assureurs comparés`, "#10b981"], ["location-voiture", "key", "Location de voiture", "Aéroports & centres-villes", "#0e7490"]
+      ["ferry", "ship", "Ferry", `${D.ferryRoutes.length} ports d'Europe → Tunis`, "#0e7490"], ["location-voiture", "key", "Location de voiture", "Aéroports & centres-villes", "#d97706"],
+      ["assurance-auto", "shield", "Assurance auto", `${D.insurers.length} assureurs comparés`, "#10b981"], ["credit", "bank", "Crédit", "Immobilier, auto, consommation", "#4f46e5"],
+      ["transfert", "send", "Transfert d'argent", "Europe → Tunisie, montant reçu", "#db2777"]
     ];
-    const TABS = [["vols", "plane", "Vols"], ["hotels", "hotel", "Hôtels"], ["internet", "wifi", "Internet"], ["mobile", "phone", "Mobile"], ["assurance", "shield", "Assurance"], ["voiture", "key", "Location"]];
+    const TABS = [["vols", "plane", "Vols"], ["hotels", "hotel", "Hôtels"], ["ferry", "ship", "Ferry"], ["internet", "wifi", "Internet"], ["mobile", "phone", "Mobile"], ["assurance", "shield", "Assurance"], ["voiture", "key", "Location"], ["credit", "bank", "Crédit"], ["transfert", "send", "Transfert"]];
 
     app.innerHTML = `
     <section class="hero"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
       <div class="container grid">
         <div>
-          <span class="eyebrow"><b>NOUVEAU</b> Score personnalisé & comparatif côte à côte</span>
+          <span class="eyebrow"><b>NOUVEAU</b> Pack vacances & budget foyer multi-domaines</span>
           <h1>Comparez tout en Tunisie.<br><em>Payez moins.</em></h1>
           <p class="lead">Internet, mobile, vols, hôtels, assurance auto et location de voiture : toutes les offres analysées selon <b>vos</b> priorités, gratuitement.</p>
           <p class="ar" dir="rtl" lang="ar">قارن كل العروض في تونس ووفّر فلوسك</p>
@@ -436,12 +450,39 @@
             <div class="field"><label>Retour</label><input type="date" name="end" value="${inDays(21)}" min="${inDays(1)}"></div>
             <button class="btn btn-primary btn-lg">${icon("search")}Comparer les loueurs</button>
           </form>
+          <form data-pane="ferry" class="form-grid" hidden>
+            <div class="field"><label>Port de départ</label><select name="route">${D.ferryRoutes.map((r) => opt(r.id, r.port + " → Tunis", "MRS")).join("")}</select></div>
+            <div class="field"><label>Date</label><input type="date" name="date" value="${inDays(30)}" min="${inDays(0)}"></div>
+            <div class="field"><label>Véhicule</label><select name="veh">${Object.entries(VEH).map(([k, v]) => opt(k, v, "car")).join("")}</select></div>
+            <div class="field"><label>Adultes</label><select name="ad">${[1, 2, 3, 4, 5].map((n) => opt(n, n, 2)).join("")}</select></div>
+            <button class="btn btn-primary btn-lg">${icon("search")}Comparer les ferries</button>
+          </form>
+          <form data-pane="credit" class="form-grid" hidden>
+            <div class="field"><label>Type de crédit</label><select name="type">${Object.entries(D.loanTypes).map(([k, v]) => opt(k, v.label, "immo")).join("")}</select></div>
+            <div class="field"><label>Montant (DT)</label><input type="number" name="amount" value="150000" min="1000" step="1000"></div>
+            <div class="field"><label>Durée (ans)</label><input type="number" name="years" value="20" min="1" max="25"></div>
+            <button class="btn btn-primary btn-lg">${icon("calc")}Simuler</button>
+          </form>
+          <form data-pane="transfert" class="form-grid" hidden>
+            <div class="field"><label>Vous envoyez (€)</label><input type="number" name="amount" value="500" min="20" step="10"></div>
+            <div class="field"><label>Depuis</label><select name="from">${COUNTRIES.map((c) => opt(c, c, "France")).join("")}</select></div>
+            <div class="field"><label>Réception</label><select name="mode">${Object.entries(MODES).map(([k, v]) => opt(k, v, "compte")).join("")}</select></div>
+            <button class="btn btn-primary btn-lg">${icon("send")}Comparer</button>
+          </form>
         </div>
       </div>
 
       <section class="block">
-        <div class="section-title"><span class="kicker">6 comparateurs</span><h2>Que voulez-vous comparer ?</h2><p>Une seule adresse pour toutes vos dépenses du quotidien et du voyage.</p></div>
+        <div class="section-title"><span class="kicker">9 comparateurs</span><h2>Que voulez-vous comparer ?</h2><p>Une seule adresse pour toutes vos dépenses du quotidien et du voyage.</p></div>
         <div class="cat-grid">${CATS.map(([r, ic, t, s, c]) => `<a class="cat" href="#/${r}"><span class="ico" style="background:${c}1f;color:${c}">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span>${icon("arrow", "go")}</a>`).join("")}</div>
+      </section>
+
+      <section class="block" style="padding-top:0">
+        <div class="section-title"><span class="kicker">Multi-domaines</span><h2>Comparez des scénarios complets</h2><p>Plusieurs comparateurs combinés pour obtenir le vrai coût total.</p></div>
+        <div class="combo-grid">
+          <a class="combo c1" href="#/pack-voyage"><div class="combo-ic"><span>${icon("plane")}</span><span>${icon("ship")}</span><span>${icon("hotel")}</span><span>${icon("key")}</span></div><h3>Pack vacances en Tunisie</h3><p>Avion + location, avion + transferts ou ferry avec votre voiture : coût porte-à-porte, durée et hôtel compris. Idéal pour les vacances au pays.</p><span class="combo-cta">Comparer les scénarios ${icon("arrow")}</span></a>
+          <a class="combo c2" href="#/budget-foyer"><div class="combo-ic"><span>${icon("wifi")}</span><span>${icon("phone")}</span><span>${icon("shield")}</span></div><h3>Budget foyer</h3><p>Internet + forfaits de toute la famille + assurance auto : la meilleure combinaison, ou tout chez un seul opérateur, et votre économie annuelle.</p><span class="combo-cta">Calculer mon économie ${icon("arrow")}</span></a>
+        </div>
       </section>
 
       <section class="block" style="padding-top:0">
@@ -477,8 +518,8 @@
         <div class="stats">
           <div><b data-count="${D.internet.length + D.mobile.length}">0</b><span>offres télécom</span></div>
           <div><b data-count="${D.destinations.length * D.airportsTN.length}">0</b><span>liaisons aériennes</span></div>
-          <div><b data-count="${D.insurers.length + D.rentals.length}">0</b><span>assureurs & loueurs</span></div>
-          <div><b>0 DT</b><span>le prix du service</span></div>
+          <div><b data-count="${D.insurers.length + D.rentals.length + D.banks.length + D.transfer.length}">0</b><span>assureurs, banques, loueurs & services</span></div>
+          <div><b data-count="11">0</b><span>comparateurs dont 2 multi-domaines</span></div>
         </div>
       </section>
 
@@ -488,7 +529,8 @@
           ${faq("Qarin.tn est-il vraiment gratuit ?", "Oui. La comparaison est gratuite et sans inscription. Le site peut être rémunéré par certains partenaires lorsque vous souscrivez via un lien, sans surcoût pour vous et sans influence sur le classement.")}
           ${faq("Comment fonctionne le score personnalisé ?", "Chaque offre est notée sur plusieurs critères (prix, performance, flexibilité, service…). Vous choisissez l'importance de chaque critère avec les curseurs « Mes priorités » : le score sur 10 et le pourcentage de correspondance sont recalculés immédiatement.")}
           ${faq("Comment comparer des offres côte à côte ?", "Cliquez sur « Comparer » sur 2 ou 3 offres, puis sur le bouton en bas de l'écran. Vous obtenez un tableau détaillé, la meilleure valeur surlignée, un verdict et l'économie réalisable. Le comparatif peut être partagé par lien ou imprimé.")}
-          ${faq("Les prix sont-ils garantis ?", "Non : les prix affichés sont indicatifs, estimés à partir des grilles tarifaires publiques et des tendances de saison. Le prix définitif est celui affiché par le fournisseur au moment de la souscription.")}
+          ${faq("D'où viennent les prix ? Sont-ils garantis ?", DEMO ? "Le site est actuellement une version de démonstration : les prix sont fictifs ou estimés par des modèles et ne proviennent pas des fournisseurs. Ils seront remplacés par des tarifs publics sourcés et datés, et par des flux officiels (affiliation, partenariats). Détails dans « Nos données & méthodologie »." : "Les prix proviennent des tarifs publics des fournisseurs (source et date affichées) ou de flux officiels. Le prix définitif est celui du fournisseur au moment de la souscription.")}
+          ${faq("Qu'est-ce que le Pack vacances et le Budget foyer ?", "Ce sont des comparaisons multi-domaines : elles combinent plusieurs comparateurs (vols, ferry, hôtels, location… ou Internet, mobiles, assurance) pour comparer des scénarios complets sur leur coût total.")}
           ${faq("La fibre est-elle disponible chez moi ?", "Choisissez votre gouvernorat dans le comparateur Internet : seules les technologies généralement disponibles dans votre zone sont affichées. L'éligibilité exacte à votre adresse se vérifie chez l'opérateur.")}
         </div>
       </section>
@@ -502,7 +544,7 @@
       $$(".tab", app).forEach((x) => { x.classList.toggle("active", x === t); x.setAttribute("aria-selected", x === t); });
       $$("[data-pane]", app).forEach((p) => (p.hidden = p.dataset.pane !== t.dataset.tab));
     }));
-    const target = { vols: "vols", hotels: "hotels", internet: "internet", mobile: "mobile", assurance: "assurance-auto", voiture: "location-voiture" };
+    const target = { vols: "vols", hotels: "hotels", internet: "internet", mobile: "mobile", assurance: "assurance-auto", voiture: "location-voiture", ferry: "ferry", credit: "credit", transfert: "transfert" };
     $$("[data-pane]", app).forEach((f) => f.addEventListener("submit", (e) => {
       e.preventDefault();
       const p = Object.fromEntries(new FormData(f).entries());
@@ -838,25 +880,28 @@
   /* =========================================================
      ASSURANCE AUTO
      ========================================================= */
-  function insurancePage(params, path) {
-    document.title = "Comparateur assurance auto Tunisie — devis estimatif | Qarin.tn";
-    const q = {
-      cv: clamp(+params.get("cv") || 6, 4, 20), val: clamp(+params.get("val") || 45000, 5000, 500000), f: ["rc", "tp", "tr"].includes(params.get("f")) ? params.get("f") : "tp",
-      age: clamp(+params.get("age") || 35, 18, 90), lic: clamp(params.has("lic") ? +params.get("lic") : 10, 0, 70), vage: clamp(+params.get("vage") || 3, 0, 40), gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis"
-    };
-    const FORM = { rc: "Responsabilité civile", tp: "Tiers + vol / incendie", tr: "Tous risques" };
-    const GUAR = ["Resp. civile", "Défense & recours", "Incendie", "Vol", "Bris de glace", "Dommages collision", "Tous dommages", "Assistance 0 km"];
+  const INS_FORM = { rc: "Responsabilité civile", tp: "Tiers + vol / incendie", tr: "Tous risques" };
+  const INS_GUAR = ["Resp. civile", "Défense & recours", "Incendie", "Vol", "Bris de glace", "Dommages collision", "Tous dommages", "Assistance 0 km"];
+  function insQuotes(q) {
     const rc = (250 + q.cv * 38) * (q.age < 25 ? 1.35 : q.age < 30 ? 1.12 : q.age > 70 ? 1.15 : 1) * (q.lic < 2 ? 1.25 : q.lic < 5 ? 1.08 : 1) * (["Tunis", "Ariana", "Ben Arous", "Manouba", "Sousse", "Sfax"].includes(q.gov) ? 1.1 : 1);
     const basePrem = q.f === "rc" ? rc : q.f === "tp" ? rc + q.val * 0.011 * (q.vage > 10 ? 0.7 : 1) : rc + q.val * 0.034 * (q.vage > 8 ? 0.8 : 1);
-    const items = D.insurers.map((ins, i) => {
+    return D.insurers.map((ins, i) => {
       const r = rng(hashStr(ins.p + q.cv + q.val + q.f + q.age + q.gov));
       const on = new Set(["Resp. civile", "Défense & recours"]);
       if (q.f !== "rc") { on.add("Incendie"); on.add("Vol"); }
       if (q.f === "tr") { on.add("Dommages collision"); on.add("Tous dommages"); on.add("Bris de glace"); }
       if (ins.f >= 1.04 || ins.feats.some((f) => f.includes("Bris"))) on.add("Bris de glace");
       if (ins.feats.some((f) => f.includes("24/7"))) on.add("Assistance 0 km");
-      return { id: "ins" + i, p: ins.p, name: FORM[q.f], price: Math.round(basePrem * ins.f * (0.96 + r() * 0.08)), rating: ins.rating, claims: parseInt(ins.claims), feats: ins.feats, on };
+      return { id: "ins" + i, p: ins.p, name: INS_FORM[q.f], price: Math.round(basePrem * ins.f * (0.96 + r() * 0.08)), rating: ins.rating, claims: parseInt(ins.claims), feats: ins.feats, on };
     });
+  }
+  function insurancePage(params, path) {
+    document.title = "Comparateur assurance auto Tunisie — devis estimatif | Qarin.tn";
+    const q = {
+      cv: clamp(+params.get("cv") || 6, 4, 20), val: clamp(+params.get("val") || 45000, 5000, 500000), f: ["rc", "tp", "tr"].includes(params.get("f")) ? params.get("f") : "tp",
+      age: clamp(+params.get("age") || 35, 18, 90), lic: clamp(params.has("lic") ? +params.get("lic") : 10, 0, 70), vage: clamp(+params.get("vage") || 3, 0, 40), gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis"
+    };
+    const FORM = INS_FORM, GUAR = INS_GUAR, items = insQuotes(q);
     const form = `<form class="page-search form-grid" id="is">
       <div class="field"><label>Puissance fiscale</label><select name="cv">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((n) => opt(n, n + " CV", q.cv)).join("")}</select></div>
       <div class="field"><label>Valeur véhicule (DT)</label><input type="number" name="val" value="${q.val}" min="5000" step="1000"></div>
@@ -889,7 +934,8 @@
         <div class="ins-guar">${GUAR.map((g) => `<span class="${o.on.has(g) ? "on" : ""}">${icon(o.on.has(g) ? "check" : "x")}${g}</span>`).join("")}</div>${feats(o.feats)}`,
       details: (o) => `<table><tr><td>Prime annuelle estimée</td><td>${tnd(o.price)}</td></tr><tr><td>Paiement mensuel équivalent</td><td>${tnd(o.price / 12)}</td></tr><tr><td>Écart avec l'offre la moins chère</td><td>${o.price === pMin ? "—" : "+" + tnd(o.price - pMin)}</td></tr><tr class="total"><td>Sur 3 ans</td><td>${tnd(o.price * 3)}</td></tr></table>`,
       side: (o) => `<div><div class="price-big">${nf.format(o.price)}<sup>DT/an</sup></div><div class="price-sub">soit <b>${tnd(o.price / 12)}</b> / mois</div></div>`,
-      cta: "Demander un devis", url: (o) => purl(o.p), fav: (o) => ({ title: o.p, sub: o.name, price: tnd(o.price) + "/an" }),
+      note: "<b>Estimation indicative, non fournie par les assureurs.</b> Qarin.tn n'est pas intermédiaire d'assurance : la prime réelle est établie uniquement par l'assureur ou un intermédiaire agréé.",
+      cta: "Site de l'assureur", url: (o) => purl(o.p), fav: (o) => ({ title: o.p, sub: o.name, price: tnd(o.price) + "/an" }),
       compare: [
         { g: "Prix" }, ["Prime annuelle", (o) => ({ n: o.price, t: tnd(o.price) }), "min"], ["Par mois", (o) => ({ n: o.price, t: tnd(o.price / 12) }), "min", false],
         { g: "Service" }, ["Satisfaction", (o) => ({ n: o.rating, t: o.rating.toFixed(1) + " / 5" }), "max"], ["Délai d'indemnisation", (o) => ({ n: o.claims, t: o.claims + " jours" }), "min"],
@@ -903,12 +949,8 @@
   /* =========================================================
      LOCATION VOITURE
      ========================================================= */
-  function carPage(params, path) {
-    document.title = "Location de voiture en Tunisie — comparez les loueurs | Qarin.tn";
-    const spot = D.rentalSpots.includes(params.get("spot")) ? params.get("spot") : D.rentalSpots[0];
-    const start = validDate(params.get("start")) && params.get("start") >= inDays(0) ? params.get("start") : inDays(14);
-    const end = validDate(params.get("end")) && params.get("end") > start ? params.get("end") : addDays(start, 7);
-    const days = daysBetween(start, end), young = params.get("young") === "1";
+  function genCars(spot, start, end, young) {
+    const days = daysBetween(start, end);
     const season = [0.8, 0.8, 0.9, 1, 1.05, 1.25, 1.5, 1.55, 1.15, 1, 0.85, 1.1][new Date(start + "T00:00:00").getMonth()];
     const items = [];
     D.carCats.forEach((c) => D.rentals.forEach((a) => {
@@ -917,6 +959,15 @@
       const day = Math.round(c.base * a.f * season * (0.9 + r() * 0.25) * (days >= 7 ? 0.88 : days >= 3 ? 0.95 : 1) + (young ? 15 : 0));
       items.push({ id: c.id + "-" + a.p.toLowerCase(), p: a.p, name: c.name, cat: c, day, total: day * days, feats: a.feats, franchise: a.franchise, cancel: a.feats.includes("Annulation gratuite"), auto: c.id === "lux" || c.id === "suv" ? r() < 0.7 : r() < 0.25 });
     }));
+    return { items, days };
+  }
+  function carPage(params, path) {
+    document.title = "Location de voiture en Tunisie — comparez les loueurs | Qarin.tn";
+    const spot = D.rentalSpots.includes(params.get("spot")) ? params.get("spot") : D.rentalSpots[0];
+    const start = validDate(params.get("start")) && params.get("start") >= inDays(0) ? params.get("start") : inDays(14);
+    const end = validDate(params.get("end")) && params.get("end") > start ? params.get("end") : addDays(start, 7);
+    const young = params.get("young") === "1";
+    const { items, days } = genCars(spot, start, end, young);
     const dMax = Math.ceil(Math.max(...items.map((o) => o.day)) / 10) * 10, dMin = Math.floor(Math.min(...items.map((o) => o.day)) / 10) * 10;
     const form = `<form class="page-search form-grid" id="cs">
       <div class="field"><label>Lieu de prise</label><select name="spot">${D.rentalSpots.map((s) => opt(s, s, spot)).join("")}</select></div>
@@ -956,6 +1007,391 @@
   }
 
   /* =========================================================
+     TRANSFERT D'ARGENT (Europe -> Tunisie)
+     ========================================================= */
+  const MODES = { compte: "Sur compte bancaire", especes: "Retrait en espèces", poste: "Bureau de poste" };
+  const COUNTRIES = ["France", "Allemagne", "Italie", "Belgique", "Pays-Bas", "Espagne"];
+  const f2 = (n) => n.toFixed(2).replace(".", ",");
+  const f3 = (n) => n.toFixed(3).replace(".", ",");
+  function transferQuotes(amount, mode) {
+    const mid = D.meta.eurTnd;
+    return D.transfer.filter((t) => t.modes.includes(mode)).map((t, i) => {
+      const fee = Math.round(t.fee(amount) * 100) / 100, rate = mid * (1 - t.margin), recv = Math.max(0, (amount - fee) * rate);
+      return { id: "tr" + i, p: t.p, name: t.p, fee, rate, recv, cost: amount * mid - recv, margin: t.margin, speed: t.speed, speedH: t.speedH, feats: t.feats };
+    });
+  }
+  function transferPage(params, path) {
+    document.title = "Transfert d'argent vers la Tunisie — comparez frais et taux | Qarin.tn";
+    const amount = clamp(+params.get("amount") || 500, 20, 20000);
+    const mode = MODES[params.get("mode")] ? params.get("mode") : "compte";
+    const from = COUNTRIES.includes(params.get("from")) ? params.get("from") : "France";
+    const items = transferQuotes(amount, mode);
+    const best = Math.max(...items.map((t) => t.recv)), worst = Math.min(...items.map((t) => t.recv));
+    const form = `<form class="page-search form-grid" id="ts">
+      <div class="field"><label>Vous envoyez (€)</label><input type="number" name="amount" value="${amount}" min="20" max="20000" step="10"></div>
+      <div class="field"><label>Depuis</label><select name="from">${COUNTRIES.map((c) => opt(c, c, from)).join("")}</select></div>
+      <div class="field"><label>Réception en Tunisie</label><select name="mode">${Object.entries(MODES).map(([k, v]) => opt(k, v, mode)).join("")}</select></div>
+      <button class="btn btn-primary">${icon("search")}Comparer</button></form>`;
+    listPage({
+      key: "transfert", icon: "send", title: "Transfert d'argent vers la Tunisie", crumb: "Transfert d'argent", cmpTitle: "transfert d'argent", unit: "services",
+      sub: `${nf.format(amount)} € depuis ${esc(from)} · ${MODES[mode].toLowerCase()} · référence 1 € = ${f3(D.meta.eurTnd)} DT`,
+      searchForm: form, items, cheapLabel: "Le plus reçu",
+      countText: (n) => `${n} services <small>· jusqu'à <b style="color:var(--ok)">${tnd(best - worst)}</b> reçus en plus selon le service</small>`,
+      note: "<b>Frais et taux de démonstration.</b> Les frais et le taux réels sont affichés par le service au moment de l'envoi. Comparez toujours le <b>montant reçu</b>, pas seulement les frais.",
+      price: (t) => t.cost, costLabel: "perdus en frais et change",
+      perf: { label: "Le plus rapide", icon: "zap", get: (t) => -t.speedH, text: (t) => t.speed },
+      criteria: [{ k: "recv", label: "Montant reçu", get: (t) => t.recv, better: "max", def: 5 }, { k: "speed", label: "Rapidité", get: (t) => Math.log(t.speedH + 0.1), better: "min", def: 2 }, { k: "fee", label: "Frais fixes bas", get: (t) => t.fee, better: "min", def: 1 }],
+      presets: [{ label: "Maximum reçu", w: { recv: 5, speed: 1, fee: 1 } }, { label: "Urgent", w: { recv: 2, speed: 5, fee: 1 } }],
+      filters: [
+        { key: "fast", type: "toggle", label: "Disponible en moins d'1 h", test: (t) => t.speedH < 1 },
+        { key: "nofee", type: "toggle", label: "Sans frais fixes", test: (t) => t.fee === 0 },
+        { key: "prov", type: "checks", label: "Services", options: items.map((t) => t.p), get: (t) => t.p }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["recv", "Montant reçu", (a, b) => b.recv - a.recv, "wallet"], ["speed", "Rapidité", (a, b) => a.speedH - b.speedH, "zap"]],
+      ribbons: (t) => (t.speedH < 1 ? `<span class="ribbon r-info">${icon("zap")}Express</span>` : "") + (t.margin === 0 ? `<span class="ribbon r-ok">${icon("check")}Sans marge de change</span>` : ""),
+      card: (t) => `<div class="head">${badge(t.p)}<div><h3>${esc(t.p)}</h3><small>${esc(t.speed)} · ${MODES[mode]}</small></div></div>
+        <div class="meters">${meter("Reçu", 60 + ((t.recv - worst) / (best - worst || 1)) * 40, tnd(t.recv))}</div>
+        <div class="specs">${spec("Frais", f2(t.fee) + " €")}${spec("Taux appliqué", f3(t.rate))}${spec("Marge de change", f2(t.margin * 100) + " %")}${spec("Coût réel", tnd(t.cost))}</div>${feats(t.feats)}`,
+      details: (t) => `<table><tr><td>Montant envoyé</td><td>${nf.format(amount)} €</td></tr><tr><td>Frais d'envoi</td><td>− ${f2(t.fee)} €</td></tr><tr><td>Montant converti</td><td>${f2(amount - t.fee)} €</td></tr><tr><td>Taux appliqué (référence ${f3(D.meta.eurTnd)})</td><td>${f3(t.rate)}</td></tr><tr class="total"><td>Montant reçu</td><td>${tnd(t.recv)}</td></tr><tr><td>Coût total (frais + change)</td><td>${tnd(t.cost)} ≈ ${f2(t.cost / D.meta.eurTnd)} €</td></tr></table>`,
+      side: (t) => `<div><div class="price-sub">Montant reçu</div><div class="price-big">${nf.format(Math.round(t.recv))}<sup>DT</sup></div><div class="price-sub">coût réel <b>${tnd(t.cost)}</b></div></div>`,
+      cta: "Site du service", url: (t) => purl(t.p), fav: (t) => ({ title: t.p, sub: `${amount} € · ${MODES[mode]}`, price: tnd(t.recv) + " reçus" }),
+      compare: [
+        { g: "Montants" }, ["Montant reçu", (t) => ({ n: Math.round(t.recv), t: tnd(t.recv) }), "max"], ["Frais d'envoi", (t) => ({ n: t.fee, t: f2(t.fee) + " €" }), "min"],
+        ["Taux appliqué", (t) => ({ n: t.rate, t: f3(t.rate) }), "max", false], ["Coût réel", (t) => ({ n: Math.round(t.cost), t: tnd(t.cost) }), "min"],
+        { g: "Service" }, ["Délai", (t) => ({ n: t.speedH, t: t.speed }), "min", false], ["Réception", () => MODES[mode]], ["Points forts", (t) => t.feats.join(" · ")]
+      ],
+      after: () => $("#ts").addEventListener("submit", (e) => { e.preventDefault(); go("transfert", Object.fromEntries(new FormData(e.target).entries())); })
+    }, params, path);
+  }
+
+  /* =========================================================
+     FERRY (Europe <-> Tunis La Goulette)
+     ========================================================= */
+  const VEH = { none: "Sans véhicule", car: "Voiture", van: "Van / 4x4", moto: "Moto" };
+  const CAB = { seat: "Fauteuil", inside: "Cabine intérieure", outside: "Cabine extérieure" };
+  function genFerries(rid, date, ad, ch, veh, cab) {
+    const R = D.ferryRoutes.find((r) => r.id === rid) || D.ferryRoutes[0];
+    const season = [0.85, 0.85, 0.9, 1, 1.05, 1.35, 1.7, 1.75, 1.2, 0.95, 0.9, 1.25][new Date(date + "T00:00:00").getMonth()];
+    return R.ops.map((op, i) => {
+      const r = rng(hashStr(op + rid + date)), o = D.ferryOps[op];
+      const pax = R.base * (ad + ch * 0.5);
+      const vehC = ({ none: 0, car: 420, van: 620, moto: 180 }[veh] || 0) * (R.h / 22);
+      const cabC = ({ seat: 0, inside: 160, outside: 230 }[cab] || 0) * (ad + ch) * (R.h > 12 ? 1 : 0.6);
+      return { id: "fe" + i, p: op, name: op, route: R, dep: [10, 12, 15, 17, 19, 20][Math.floor(r() * 6)] * 60, hours: R.h + (r() < 0.5 ? 0 : 1) + (i ? 1 : 0), price: Math.round((pax + vehC + cabC) * season * o.f * (0.9 + r() * 0.2)), rating: o.rating, feats: o.feats };
+    });
+  }
+  function ferryPage(params, path) {
+    const R = D.ferryRoutes.find((r) => r.id === params.get("route")) || D.ferryRoutes[0];
+    const date = validDate(params.get("date")) && params.get("date") >= inDays(0) ? params.get("date") : inDays(30);
+    const ret = validDate(params.get("ret")) && params.get("ret") > date ? params.get("ret") : "";
+    const ad = clamp(+params.get("ad") || 2, 1, 9), ch = clamp(params.has("ch") ? +params.get("ch") : 0, 0, 8);
+    const veh = VEH[params.get("veh")] ? params.get("veh") : "car", cab = CAB[params.get("cab")] ? params.get("cab") : "inside";
+    document.title = `Ferry ${R.port} → Tunis — comparez les traversées | Qarin.tn`;
+    const out = genFerries(R.id, date, ad, ch, veh, cab), back = ret ? genFerries(R.id, ret, ad, ch, veh, cab) : null;
+    const items = out.map((f, i) => ({ ...f, retPrice: back ? back[i].price : 0, retDep: back ? back[i].dep : 0, total: f.price + (back ? back[i].price : 0) }));
+    const people = ad + ch;
+    const form = `<form class="page-search form-grid" id="fes">
+      <div class="field"><label>Port de départ</label><select name="route">${D.ferryRoutes.map((r) => opt(r.id, r.port + " → Tunis", R.id)).join("")}</select></div>
+      <div class="field"><label>Aller</label><input type="date" name="date" value="${date}" min="${inDays(0)}"></div>
+      <div class="field"><label>Retour (option)</label><input type="date" name="ret" value="${ret}" min="${inDays(1)}"></div>
+      <div class="field"><label>Adultes</label><select name="ad">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n, ad)).join("")}</select></div>
+      <div class="field"><label>Enfants</label><select name="ch">${[0, 1, 2, 3, 4].map((n) => opt(n, n, ch)).join("")}</select></div>
+      <div class="field"><label>Véhicule</label><select name="veh">${Object.entries(VEH).map(([k, v]) => opt(k, v, veh)).join("")}</select></div>
+      <div class="field"><label>Hébergement</label><select name="cab">${Object.entries(CAB).map(([k, v]) => opt(k, v, cab)).join("")}</select></div>
+      <button class="btn btn-primary">${icon("search")}Rechercher</button></form>`;
+    const row = (f, dep, a, b, lbl) => `<div class="fl-row">${badge(f.p)}<div class="fl-time"><b>${hm(dep)}</b><small>${a} · ${lbl}</small></div><div class="fl-line">${f.hours} h de traversée<div class="bar"></div><span class="direct">Direct</span></div><div class="fl-time" style="text-align:right"><b>${hm(dep + f.hours * 60)}<sup style="color:var(--accent);font-size:12px"> +${Math.floor((dep + f.hours * 60) / 1440)}</sup></b><small>${b}</small></div></div>`;
+    listPage({
+      key: "ferry", icon: "ship", title: `Ferry ${R.port} → Tunis`, crumb: "Ferry", cmpTitle: "ferry", unit: "traversées",
+      sub: `${frDate(date, { weekday: "long", day: "numeric", month: "long" })}${ret ? " · retour " + frDate(ret, { weekday: "long", day: "numeric", month: "long" }) : " · aller simple"} · ${people} passager${people > 1 ? "s" : ""} · ${VEH[veh]} · ${CAB[cab]}`,
+      searchForm: form, items,
+      note: "<b>Prix de démonstration</b> modélisés selon la saison (forte hausse en juillet-août), le véhicule et l'hébergement à bord. Horaires et tarifs réels sur le site de la compagnie.",
+      price: (f) => f.total, costLabel: "sur la traversée",
+      perf: { label: "La plus courte", icon: "zap", get: (f) => -f.hours, text: (f) => f.hours + " h de traversée" },
+      criteria: [{ k: "price", label: "Prix", get: (f) => f.total, better: "min", def: 4 }, { k: "dur", label: "Durée", get: (f) => f.hours, better: "min", def: 2 }, { k: "rating", label: "Confort / avis", get: (f) => f.rating, better: "max", def: 2 }],
+      presets: [{ label: "Équilibré", w: { price: 4, dur: 2, rating: 2 } }, { label: "Le moins cher", w: { price: 5, dur: 0, rating: 0 } }, { label: "Confort", w: { price: 1, dur: 2, rating: 5 } }],
+      filters: [{ key: "op", type: "checks", label: "Compagnies", options: R.ops, get: (f) => f.p }],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["price", "Prix", (a, b) => a.total - b.total, "tag"], ["dur", "Durée", (a, b) => a.hours - b.hours, "clock"], ["dep", "Départ", (a, b) => a.dep - b.dep, "calendar"]],
+      ribbons: () => `<span class="ribbon r-info">${icon("car")}${VEH[veh]}</span><span class="ribbon r-info">${CAB[cab]}</span>`,
+      card: (f) => `${row(f, f.dep, R.port, "Tunis", "Aller")}${ret ? row(f, f.retDep, "Tunis", R.port, "Retour " + frDate(ret)) : ""}<div class="specs">${spec("Passagers", people)}${spec("Véhicule", VEH[veh])}${spec("À bord", CAB[cab])}${spec("Avis", f.rating.toFixed(1) + " / 5")}</div>${feats(f.feats)}`,
+      details: (f) => `<table><tr><td>Aller · ${frDate(date)}</td><td>${tnd(f.price)}</td></tr>${ret ? `<tr><td>Retour · ${frDate(ret)}</td><td>${tnd(f.retPrice)}</td></tr>` : ""}<tr class="total"><td>Total</td><td>${tnd(f.total)} ≈ ${eur(f.total)}</td></tr><tr><td>Par passager</td><td>${tnd(f.total / people)}</td></tr></table>`,
+      side: (f) => `<div><div class="price-big">${nf.format(f.total)}<sup>DT</sup></div><div class="price-sub">≈ ${eur(f.total)} · ${ret ? "aller-retour" : "aller"}<br><b>${tnd(f.total / people)}</b> / passager</div></div>`,
+      cta: "Voir les traversées", url: (f) => purl(f.p), fav: (f) => ({ title: `${R.port} → Tunis · ${f.p}`, sub: `${frDate(date)} · ${VEH[veh]}`, price: tnd(f.total) }),
+      compare: [
+        { g: "Prix" }, ["Total", (f) => ({ n: f.total, t: tnd(f.total) }), "min"], ["Par passager", (f) => ({ n: f.total / people, t: tnd(f.total / people) }), "min"],
+        { g: "Traversée" }, ["Départ", (f) => hm(f.dep)], ["Durée", (f) => ({ n: f.hours, t: f.hours + " h" }), "min"], ["Avis", (f) => ({ n: f.rating, t: f.rating.toFixed(1) + " / 5" }), "max"], ["À bord", (f) => f.feats.join(" · ")]
+      ],
+      after: () => $("#fes").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("ferry", p); })
+    }, params, path);
+  }
+
+  /* =========================================================
+     CRÉDIT (immobilier, auto, consommation)
+     ========================================================= */
+  function loanQuotes(type, amount, years) {
+    const T = D.loanTypes[type], n = years * 12;
+    return D.banks.map((b, i) => {
+      const rate = D.meta.tmm + b.m + T.extra + (type === "immo" && b.immo ? b.immo : 0), r = rate / 100 / 12;
+      const pm = (amount * r) / (1 - Math.pow(1 + r, -n)), insM = (amount * b.ins) / 12, fees = Math.max(50, amount * b.dossier);
+      let bal = amount, int1 = 0; for (let k = 0; k < Math.min(12, n); k++) { const it = bal * r; int1 += it; bal -= pm - it; }
+      const interest = pm * n - amount, insT = insM * n;
+      return { id: "bk" + i, p: b.p, name: T.label, rate, margin: b.m, pm, insM, monthly: pm + insM, fees, interest, insT, cost: interest + insT + fees, int1, islamic: !!b.islamic, feats: b.feats };
+    });
+  }
+  function creditPage(params, path) {
+    const type = D.loanTypes[params.get("type")] ? params.get("type") : "immo", T = D.loanTypes[type];
+    const amount = clamp(+params.get("amount") || T.def, 1000, 3000000), years = clamp(+params.get("years") || T.defY, 1, T.max);
+    document.title = `${T.label} — comparez les banques tunisiennes | Qarin.tn`;
+    const items = loanQuotes(type, amount, years);
+    const pct = (n) => n.toFixed(2).replace(".", ",") + " %";
+    const form = `<form class="page-search form-grid" id="crs">
+      <div class="field"><label>Type de crédit</label><select name="type">${Object.entries(D.loanTypes).map(([k, v]) => opt(k, v.label, type)).join("")}</select></div>
+      <div class="field"><label>Montant (DT)</label><input type="number" name="amount" value="${amount}" min="1000" step="1000"></div>
+      <div class="field"><label>Durée</label><select name="years">${Array.from({ length: T.max }, (_, i) => i + 1).map((y) => opt(y, y + (y > 1 ? " ans" : " an"), years)).join("")}</select></div>
+      <button class="btn btn-primary">${icon("calc")}Simuler</button></form>`;
+    const mMax = Math.ceil(Math.max(...items.map((o) => o.monthly)) / 10) * 10, mMin = Math.floor(Math.min(...items.map((o) => o.monthly)) / 10) * 10;
+    listPage({
+      key: "credit", icon: "bank", title: T.label, crumb: "Crédit", cmpTitle: "crédit", unit: "banques",
+      label: (o) => o.p, sublabel: (o) => `${T.label} · ${pct(o.rate)}`,
+      sub: `${tnd(amount)} sur ${years} an${years > 1 ? "s" : ""} · taux variable indexé sur le TMM (référence ${pct(D.meta.tmm)})`,
+      searchForm: form, items,
+      note: "<b>Simulation non contractuelle</b> avec des marges bancaires de démonstration. Le taux réel dépend de votre dossier et est fixé par la banque. Qarin.tn n'est ni un établissement de crédit ni un intermédiaire en opérations de banque.",
+      price: (o) => Math.round(o.monthly), cost: (o) => o.cost, costLabel: "de coût total du crédit",
+      perf: { label: "Coût total le plus bas", icon: "trend", get: (o) => -o.cost, text: (o) => tnd(o.cost) + " d'intérêts, assurance et frais" },
+      criteria: [{ k: "m", label: "Mensualité", get: (o) => o.monthly, better: "min", def: 4 }, { k: "cost", label: "Coût total", get: (o) => o.cost, better: "min", def: 4 }, { k: "fees", label: "Frais de dossier", get: (o) => o.fees, better: "min", def: 1 }],
+      presets: [{ label: "Coût total minimum", w: { m: 2, cost: 5, fees: 1 } }, { label: "Mensualité la plus basse", w: { m: 5, cost: 2, fees: 0 } }],
+      filters: [
+        { key: "isl", type: "toggle", label: "Financement islamique uniquement", test: (o) => o.islamic },
+        { key: "max", type: "range", label: "Mensualité max", min: mMin, max: mMax, step: 5, mode: "max", get: (o) => o.monthly, fmt: (v) => v + " DT" },
+        { key: "bank", type: "checks", label: "Banques", options: D.banks.map((b) => b.p), get: (o) => o.p }
+      ],
+      sorts: [["score", "Pour vous", null, "sparkles"], ["m", "Mensualité", (a, b) => a.monthly - b.monthly, "calendar"], ["cost", "Coût total", (a, b) => a.cost - b.cost, "calc"]],
+      ribbons: (o) => (o.islamic ? `<span class="ribbon r-info">Mourabaha</span>` : ""),
+      card: (o) => `<div class="head">${badge(o.p)}<div><h3>${esc(o.p)}</h3><small>${esc(o.name)} · TMM + ${pct(o.margin + T.extra)}</small></div></div>
+        <div class="meters">${meter("Coût / capital", (o.cost / amount) * 100, pct((o.cost / amount) * 100))}</div>
+        <div class="specs">${spec("Taux", pct(o.rate))}${spec("Hors assurance", tnd(o.pm) + "/m")}${spec("Assurance", tnd(o.insM) + "/m")}${spec("Frais dossier", tnd(o.fees))}</div>${feats(o.feats)}`,
+      details: (o) => `<table><tr><td>Capital emprunté</td><td>${tnd(amount)}</td></tr><tr><td>Intérêts sur ${years} an${years > 1 ? "s" : ""}</td><td>${tnd(o.interest)}</td></tr><tr><td>Assurance emprunteur</td><td>${tnd(o.insT)}</td></tr><tr><td>Frais de dossier</td><td>${tnd(o.fees)}</td></tr><tr class="total"><td>Total remboursé</td><td>${tnd(amount + o.cost)}</td></tr><tr><td>Dont intérêts la 1ʳᵉ année</td><td>${tnd(o.int1)}</td></tr></table>`,
+      side: (o) => `<div><div class="price-big">${nf.format(Math.round(o.monthly))}<sup>DT/mois</sup></div><div class="price-sub">coût total <b>${tnd(o.cost)}</b></div></div>`,
+      cta: "Site de la banque", url: (o) => purl(o.p), fav: (o) => ({ title: `${o.p} · ${T.label}`, sub: `${tnd(amount)} / ${years} ans`, price: tnd(o.monthly) + "/mois" }),
+      compare: [
+        { g: "Mensualités" }, ["Mensualité totale", (o) => ({ n: Math.round(o.monthly), t: tnd(o.monthly) }), "min"], ["Hors assurance", (o) => ({ n: Math.round(o.pm), t: tnd(o.pm) }), "min"], ["Assurance / mois", (o) => ({ n: Math.round(o.insM), t: tnd(o.insM) }), "min"],
+        { g: "Coût" }, ["Taux", (o) => ({ n: o.rate, t: pct(o.rate) }), "min"], ["Intérêts", (o) => ({ n: Math.round(o.interest), t: tnd(o.interest) }), "min"], ["Frais de dossier", (o) => ({ n: Math.round(o.fees), t: tnd(o.fees) }), "min"], ["Coût total", (o) => ({ n: Math.round(o.cost), t: tnd(o.cost) }), "min"],
+        { g: "Banque" }, ["Type", (o) => (o.islamic ? "Islamique (Mourabaha)" : "Conventionnel")], ["Points forts", (o) => o.feats.join(" · ")]
+      ],
+      after: () => $("#crs").addEventListener("submit", (e) => { e.preventDefault(); go("credit", Object.fromEntries(new FormData(e.target).entries())); })
+    }, params, path);
+  }
+
+  /* =========================================================
+     MULTI-DOMAINES : PACK VACANCES EN TUNISIE
+     ========================================================= */
+  const ORIG = [
+    { id: "paris", name: "Paris", air: "CDG", port: "MRS", km: 775 }, { id: "marseille", name: "Marseille", air: "MRS", port: "MRS", km: 10 },
+    { id: "lyon", name: "Lyon", air: "LYS", port: "MRS", km: 315 }, { id: "nice", name: "Nice", air: "NCE", port: "GOA", km: 195 },
+    { id: "rome", name: "Rome", air: "FCO", port: "CVV", km: 80 }, { id: "francfort", name: "Francfort", air: "FRA", port: "GOA", km: 900 },
+    { id: "munich", name: "Munich", air: "MUC", port: "GOA", km: 690 }, { id: "bruxelles", name: "Bruxelles", air: "BRU", port: "GOA", km: 1100 },
+    { id: "geneve", name: "Genève", air: "GVA", port: "GOA", km: 400 }
+  ];
+  const REG = {
+    hammamet: { apt: "NBE", spot: "Aéroport Enfidha", tr: 40, kmG: 75 }, sousse: { apt: "MIR", spot: "Aéroport Monastir", tr: 20, kmG: 145 },
+    djerba: { apt: "DJE", spot: "Aéroport Djerba", tr: 15, kmG: 520 }, tunis: { apt: "TUN", spot: "Aéroport Tunis-Carthage", tr: 12, kmG: 15 },
+    monastir: { apt: "MIR", spot: "Aéroport Monastir", tr: 8, kmG: 165 }, mahdia: { apt: "MIR", spot: "Aéroport Monastir", tr: 60, kmG: 205 },
+    tozeur: { apt: "TOE", spot: "Aéroport Tozeur", tr: 10, kmG: 450 }, tabarka: { apt: "TUN", spot: "Aéroport Tunis-Carthage", tr: 175, kmG: 175 },
+    kantaoui: { apt: "MIR", spot: "Aéroport Monastir", tr: 30, kmG: 140 }
+  };
+  const FUEL = 2.5; // DT / litre (référence)
+  const C = { air: "#0a5c8a", ship: "#0e7490", hotel: "#10b981", car: "#f59e0b", fuel: "#94a3b8", taxi: "#8b5cf6", road: "#64748b", net: "#0ea5e9", mob: "#8b5cf6", ins: "#10b981" };
+  const minBy = (arr, f) => arr.reduce((a, b) => (f(b) < f(a) ? b : a));
+  function scenCard(s, flags, people, unit) {
+    const tot = s.parts.reduce((a, p) => a + p.v, 0);
+    return `<article class="scen ${flags.includes("cheap") ? "best" : ""}">
+      <div class="scen-flags">${flags.includes("cheap") ? `<span class="ribbon r-best">${icon("tag")}Le moins cher</span>` : ""}${flags.includes("fast") ? `<span class="ribbon r-ok">${icon("zap")}Le plus rapide</span>` : ""}${(s.extra || []).map((x) => `<span class="ribbon r-info">${x}</span>`).join("")}</div>
+      <div class="scen-ic">${s.ic.map((i) => `<span>${icon(i)}</span>`).join("")}</div>
+      <h3>${esc(s.title)}</h3>
+      <div class="scen-total">${tnd(tot)}<small>${unit || `≈ ${eur(tot)} · ${tnd(tot / people)} / pers.`}</small></div>
+      <div class="stack" aria-hidden="true">${s.parts.map((p) => `<i style="width:${(p.v / tot) * 100}%;background:${p.c}"></i>`).join("")}</div>
+      <ul class="lines">${s.parts.map((p) => `<li><span><b class="dot" style="background:${p.c}"></b>${esc(p.l)}</span><span>${tnd(p.v)}${p.href ? ` <a href="${p.href}" title="Comparer">${icon("chevR")}</a>` : ""}</span></li>`).join("")}</ul>
+      ${s.meta ? `<div class="scen-meta">${s.meta}</div>` : ""}
+      ${s.pros ? `<div class="pc"><div>${s.pros.map((x) => `<span class="pro">${icon("check")}${esc(x)}</span>`).join("")}</div><div>${s.cons.map((x) => `<span class="con">${icon("x")}${esc(x)}</span>`).join("")}</div></div>` : ""}
+    </article>`;
+  }
+  function recapTable(scens, rows) {
+    return `<div class="ctable-wrap" style="margin-top:20px"><table class="cmp"><thead><tr><th></th>${scens.map((s) => `<th><div class="colhead">${s.ic.map((i) => icon(i)).join(" ")}<b>${esc(s.title)}</b></div></th>`).join("")}</tr></thead><tbody>${rows.map(([l, f, better]) => {
+      const vals = scens.map(f); const nums = vals.map((v) => v.n); const tgt = better === "min" ? Math.min(...nums) : Math.max(...nums);
+      return `<tr><td>${esc(l)}</td>${vals.map((v) => `<td class="${better && nums.some((n) => n !== tgt) && v.n === tgt ? "win" : ""}">${v.t}</td>`).join("")}</tr>`;
+    }).join("")}</tbody></table></div>`;
+  }
+  function packPage(params) {
+    document.title = "Pack vacances en Tunisie — avion, ferry, hôtel, voiture | Qarin.tn";
+    const o = ORIG.find((x) => x.id === params.get("from")) || ORIG[0];
+    const city = D.cities.find((c) => c.id === params.get("dest")) || D.cities.find((c) => c.id === "djerba");
+    const din = validDate(params.get("in")) && params.get("in") >= inDays(1) ? params.get("in") : inDays(45);
+    const dout = validDate(params.get("out")) && params.get("out") > din ? params.get("out") : addDays(din, 14);
+    const nights = daysBetween(din, dout), ad = clamp(+params.get("ad") || 2, 1, 8), ch = clamp(params.has("ch") ? +params.get("ch") : 1, 0, 6);
+    const stars = [3, 4, 5].includes(+params.get("stars")) ? +params.get("stars") : 4;
+    const g = REG[city.id], people = ad + ch, pax = ad + ch * 0.75;
+    // hébergement
+    const all = genHotels(city.id, din, nights), hs = all.filter((h) => h.stars === stars);
+    const hotel = (hs.length ? hs : all).reduce((a, b) => (b.rating * 40 - b.night > a.rating * 40 - a.night ? b : a));
+    const hotelCost = hotel.night * nights * (ad + ch * 0.5);
+    const hotelPart = { l: `${hotel.name} ${hotel.stars}★ · ${nights} nuits · ${hotel.board}`, v: hotelCost, c: C.hotel, href: `#/hotels?dest=${city.id}&in=${din}&out=${dout}&ad=${ad}` };
+    // avion
+    const fo = minBy(genFlights(g.apt, o.air, din, "eco"), (f) => f.price), fr = minBy(genFlights(g.apt, o.air, dout, "eco"), (f) => f.price);
+    const flightCost = (fo.price + fr.price) * pax;
+    const airH = fo.duration / 60 + 3 + g.tr / 60;
+    const flightPart = { l: `Vols A/R ${o.name} ⇄ ${g.apt} (${fo.p})`, v: flightCost, c: C.air, href: `#/vols?from=${g.apt}&to=${o.air}&date=${din}&ret=${dout}&pax=${Math.max(1, Math.round(pax))}` };
+    // voiture de location
+    const cars = genCars(g.spot, din, dout, false).items, car = minBy(cars.filter((c) => c.cat.id === (people > 5 ? "van" : "compact")).concat(cars.filter((c) => c.cat.id === "suv")), (c) => c.total);
+    const fuelLoc = (g.tr * 2 + 40 * nights) * 0.07 * FUEL;
+    // transferts
+    const taxi = 2 * (15 + g.tr * 0.9) * Math.ceil(people / 4);
+    // ferry
+    const R = D.ferryRoutes.find((r) => r.id === o.port), cab = R.h > 12 ? "inside" : "seat";
+    const feO = minBy(genFerries(R.id, din, ad, ch, "car", cab), (f) => f.price), feR = minBy(genFerries(R.id, dout, ad, ch, "car", cab), (f) => f.price);
+    const ferryCost = feO.price + feR.price, road = o.km * 2 * 0.14 * D.meta.eurTnd, fuelTn = (g.kmG * 2 + 40 * nights) * 0.07 * FUEL;
+    const ferryH = o.km / 85 + R.h + 3 + g.kmG / 80;
+    const hTxt = (h) => `${icon("clock")}≈ ${Math.floor(h)} h ${pad(Math.round((h % 1) * 60))} porte-à-porte (aller)`;
+    const S = [
+      { k: "aircar", title: "Avion + voiture de location", ic: ["plane", "key"], hours: airH, freedom: 2, parts: [flightPart, { l: `Location ${car.name} · ${nights} j (${car.p})`, v: car.total, c: C.car, href: `#/location-voiture?spot=${encodeURIComponent(g.spot)}&start=${din}&end=${dout}` }, { l: "Carburant sur place (estimé)", v: fuelLoc, c: C.fuel }, hotelPart], pros: ["Rapide", "Liberté sur place"], cons: ["Bagages limités", "Caution de location"] },
+      { k: "airtaxi", title: "Avion + transferts", ic: ["plane", "car"], hours: airH, freedom: 0, parts: [flightPart, { l: `Transferts aéroport ⇄ hôtel (${g.tr} km)`, v: taxi, c: C.taxi }, hotelPart], pros: ["Le plus simple", "Aucune conduite"], cons: ["Peu mobile sur place", "Excursions en supplément"] },
+      { k: "ferry", title: "Ferry avec votre voiture", ic: ["ship", "car"], hours: ferryH, freedom: 3, parts: [{ l: `Ferry A/R ${R.port} ⇄ Tunis · voiture + ${CAB[cab].toLowerCase()} (${feO.p})`, v: ferryCost, c: C.ship, href: `#/ferry?route=${R.id}&date=${din}&ret=${dout}&ad=${ad}&ch=${ch}&veh=car&cab=${cab}` }, { l: `Route ${o.name} ⇄ ${R.port} (carburant + péages)`, v: road, c: C.road }, { l: `Carburant en Tunisie (${g.kmG} km jusqu'à ${city.name} + sorties)`, v: fuelTn, c: C.fuel }, hotelPart], pros: ["Votre voiture sur place", "Bagages sans limite"], cons: ["Trajet long", "Réservation tôt l'été"] }
+    ];
+    S.forEach((s) => { s.total = s.parts.reduce((a, p) => a + p.v, 0); s.meta = hTxt(s.hours); });
+    const cheap = minBy(S, (s) => s.total), fast = minBy(S, (s) => s.hours), dear = S.reduce((a, b) => (b.total > a.total ? b : a));
+    app.innerHTML = pageHead("globe", "Pack vacances en Tunisie", "Avion, ferry, location, transferts et hôtel combinés : le vrai coût total, porte-à-porte.", "Pack vacances") + `
+    <div class="container"><form class="page-search form-grid" id="pk">
+      <div class="field"><label>Vous partez de</label><select name="from">${ORIG.map((x) => opt(x.id, x.name, o.id)).join("")}</select></div>
+      <div class="field"><label>Destination</label><select name="dest">${D.cities.map((c) => opt(c.id, c.name, city.id)).join("")}</select></div>
+      <div class="field"><label>Arrivée</label><input type="date" name="in" value="${din}" min="${inDays(1)}"></div>
+      <div class="field"><label>Départ</label><input type="date" name="out" value="${dout}" min="${inDays(2)}"></div>
+      <div class="field"><label>Adultes</label><select name="ad">${[1, 2, 3, 4, 5, 6].map((n) => opt(n, n, ad)).join("")}</select></div>
+      <div class="field"><label>Enfants</label><select name="ch">${[0, 1, 2, 3, 4].map((n) => opt(n, n, ch)).join("")}</select></div>
+      <div class="field"><label>Hôtel</label><select name="stars">${[3, 4, 5].map((n) => opt(n, n + " étoiles", stars)).join("")}</select></div>
+      <button class="btn btn-primary">${icon("calc")}Comparer</button></form>
+      <div style="padding:24px 0 70px">
+        ${note("<b>Données de démonstration.</b> Chaque poste provient d'un comparateur du site (vols, ferry, location, hôtels) ; carburant à " + FUEL.toFixed(2).replace(".", ",") + " DT/L et route en Europe à 0,14 €/km. Cliquez sur › pour comparer chaque poste en détail.")}
+        <div class="save-hero"><div>${icon("scale")}<div><small>${people} voyageur${people > 1 ? "s" : ""} · ${nights} nuits · ${o.name} → ${esc(city.name)}</small><b>${esc(cheap.title)} : ${tnd(cheap.total)}</b><span>soit ${tnd(dear.total - cheap.total)} de moins que l'option la plus chère (${esc(dear.title.toLowerCase())})</span></div></div></div>
+        <div class="scen-grid">${S.map((s) => scenCard(s, [s === cheap ? "cheap" : "", s === fast ? "fast" : ""], people)).join("")}</div>
+        <h2 style="margin:34px 0 4px;letter-spacing:-.5px">Récapitulatif</h2><p class="muted" style="margin:0">Meilleure valeur en vert.</p>
+        ${recapTable(S, [
+          ["Coût total", (s) => ({ n: Math.round(s.total), t: `<b>${tnd(s.total)}</b>` }), "min"],
+          ["Par personne", (s) => ({ n: Math.round(s.total / people), t: tnd(s.total / people) }), "min"],
+          ["Transport", (s) => { const v = s.parts.filter((p) => p !== hotelPart).reduce((a, p) => a + p.v, 0); return { n: Math.round(v), t: tnd(v) }; }, "min"],
+          ["Hébergement", () => ({ n: 0, t: tnd(hotelCost) })],
+          ["Durée porte-à-porte (aller)", (s) => ({ n: Math.round(s.hours * 10), t: `${Math.floor(s.hours)} h ${pad(Math.round((s.hours % 1) * 60))}` }), "min"],
+          ["Voiture sur place", (s) => ({ n: s.freedom, t: s.freedom >= 2 ? "Oui" : "Non" }), "max"],
+          ["Bagages", (s) => ({ n: s.k === "ferry" ? 2 : 1, t: s.k === "ferry" ? "Sans limite" : "Selon billet" }), "max"]
+        ])}
+      </div></div>`;
+    $("#pk").addEventListener("submit", (e) => { e.preventDefault(); go("pack-voyage", Object.fromEntries(new FormData(e.target).entries())); });
+  }
+
+  /* =========================================================
+     MULTI-DOMAINES : BUDGET FOYER (Internet + mobiles + assurance auto)
+     ========================================================= */
+  function budgetPage(params) {
+    document.title = "Budget foyer — Internet, mobiles et assurance auto au meilleur prix | Qarin.tn";
+    const n = (k, d, a, b) => clamp(params.has(k) && params.get(k) !== "" ? +params.get(k) : d, a, b);
+    const q = {
+      gov: D.governorates.includes(params.get("gov")) ? params.get("gov") : "Tunis", pers: n("pers", 4, 1, 10), use: ["web", "stream", "intense"].includes(params.get("use")) ? params.get("use") : "stream",
+      lines: n("lines", 2, 0, 6), data: n("data", 15, 1, 200), car: params.get("car") !== "0", cv: n("cv", 6, 4, 15), val: n("val", 45000, 5000, 500000), f: ["rc", "tp", "tr"].includes(params.get("f")) ? params.get("f") : "tp",
+      curNet: params.get("curNet") || "", curMob: params.get("curMob") || "", curIns: params.get("curIns") || ""
+    };
+    const per = { web: 4, stream: 10, intense: 22 }[q.use], need = Math.round(per * q.pers * (q.pers > 1 ? 0.75 : 1) + 5);
+    const avail = (o) => (o.tech === "Fibre" ? D.fiberGov.includes(q.gov) : o.tech === "5G Box" ? D.g5Gov.includes(q.gov) : true);
+    const netM = (o) => o.price + o.setup / 24;
+    const pickNet = (list) => { const ok = list.filter((o) => avail(o) && o.down >= need); return ok.length ? minBy(ok, netM) : list.filter(avail).reduce((a, b) => (b.down > a.down ? b : a), list.filter(avail)[0]); };
+    const pickMob = (list) => { const ok = list.filter((o) => o.data >= q.data && o.min !== "—"); return ok.length ? minBy(ok, (o) => o.price) : list.filter((o) => o.min !== "—").reduce((a, b) => (b.data > a.data ? b : a)); };
+    const ins = q.car ? minBy(insQuotes({ cv: q.cv, val: q.val, f: q.f, age: 35, lic: 10, vage: 3, gov: q.gov }), (o) => o.price) : null;
+    const build = (title, ic, net, mob, extra) => {
+      const parts = [];
+      if (net) parts.push({ l: `Internet · ${net.name} (${net.p})`, v: netM(net) * 12, c: C.net, href: `#/internet?gov=${encodeURIComponent(q.gov)}&min=${[0, 10, 30, 50, 100, 300, 500].filter((x) => x <= need).pop()}` });
+      if (mob && q.lines) parts.push({ l: `${q.lines} ligne${q.lines > 1 ? "s" : ""} · ${mob.name} (${mob.p})`, v: mob.price * q.lines * 12, c: C.mob, href: `#/mobile?data=${[0, 10, 30, 50, 100].filter((x) => x <= q.data).pop()}` });
+      if (ins) parts.push({ l: `Assurance auto · ${ins.p} (${INS_FORM[q.f].toLowerCase()})`, v: ins.price, c: C.ins, href: `#/assurance-auto?cv=${q.cv}&val=${q.val}&f=${q.f}&gov=${encodeURIComponent(q.gov)}` });
+      return { title, ic, parts, total: parts.reduce((a, p) => a + p.v, 0), extra };
+    };
+    const S = [build("Meilleure combinaison", ["sparkles"], pickNet(D.internet), pickMob(D.mobile), ["Multi-fournisseurs"])];
+    ["Ooredoo", "Orange", "Tunisie Telecom"].forEach((op) => {
+      const nets = D.internet.filter((o) => o.p === op && avail(o)), mobs = D.mobile.filter((o) => o.p === op);
+      if (nets.length && mobs.length) S.push(build("Tout chez " + op, ["home"], pickNet(nets), pickMob(mobs), ["Un seul opérateur"]));
+    });
+    const cheap = minBy(S, (s) => s.total);
+    const hasCur = q.curNet !== "" || q.curMob !== "" || q.curIns !== "";
+    const cur = (+q.curNet || 0) * 12 + (+q.curMob || 0) * 12 + (+q.curIns || 0);
+    const yn = (v) => opt("1", "Oui", v ? "1" : "0") + opt("0", "Non", v ? "1" : "0");
+    app.innerHTML = pageHead("home", "Budget foyer", "Internet + forfaits mobiles + assurance auto : trouvez la combinaison la moins chère pour tout le foyer.", "Budget foyer") + `
+    <div class="container"><form class="page-search" id="bf">
+      <div class="bf-sec"><b>${icon("users")}Votre foyer</b><div class="form-grid">
+        <div class="field"><label>Gouvernorat</label><select name="gov">${D.governorates.map((x) => opt(x, x, q.gov)).join("")}</select></div>
+        <div class="field"><label>Personnes</label><select name="pers">${[1, 2, 3, 4, 5, 6, 7, 8].map((x) => opt(x, x, q.pers)).join("")}</select></div>
+        <div class="field"><label>Usage Internet</label><select name="use">${opt("web", "Web & réseaux sociaux", q.use)}${opt("stream", "Streaming HD, visio", q.use)}${opt("intense", "4K, jeux, télétravail", q.use)}</select></div>
+        <div class="field"><label>Lignes mobiles</label><select name="lines">${[0, 1, 2, 3, 4, 5, 6].map((x) => opt(x, x, q.lines)).join("")}</select></div>
+        <div class="field"><label>Data / ligne</label><select name="data">${[5, 15, 40, 100].map((x) => opt(x, x + " Go", q.data)).join("")}</select></div>
+      </div></div>
+      <div class="bf-sec"><b>${icon("car")}Votre voiture</b><div class="form-grid">
+        <div class="field"><label>Voiture à assurer</label><select name="car">${yn(q.car)}</select></div>
+        <div class="field"><label>Puissance</label><select name="cv">${[4, 5, 6, 7, 8, 9, 10, 11, 12].map((x) => opt(x, x + " CV", q.cv)).join("")}</select></div>
+        <div class="field"><label>Valeur (DT)</label><input type="number" name="val" value="${q.val}" min="5000" step="1000"></div>
+        <div class="field"><label>Formule</label><select name="f">${Object.entries(INS_FORM).map(([k, v]) => opt(k, v, q.f)).join("")}</select></div>
+      </div></div>
+      <div class="bf-sec"><b>${icon("wallet")}Ce que vous payez aujourd'hui <small class="muted">(optionnel)</small></b><div class="form-grid">
+        <div class="field"><label>Internet (DT/mois)</label><input type="number" name="curNet" value="${esc(q.curNet)}" min="0" placeholder="ex. 89"></div>
+        <div class="field"><label>Mobiles (DT/mois, total)</label><input type="number" name="curMob" value="${esc(q.curMob)}" min="0" placeholder="ex. 70"></div>
+        <div class="field"><label>Assurance (DT/an)</label><input type="number" name="curIns" value="${esc(q.curIns)}" min="0" placeholder="ex. 1200"></div>
+        <button class="btn btn-primary">${icon("calc")}Calculer</button>
+      </div></div>
+    </form>
+    <div style="padding:24px 0 70px">
+      <div class="profile">${icon("bulb")}<span>Profil calculé : besoin Internet ≈ <b>${need} Mbps</b> · ${q.lines} ligne${q.lines > 1 ? "s" : ""} de <b>${q.data} Go</b>${q.car ? ` · assurance <b>${INS_FORM[q.f].toLowerCase()}</b>` : ""}</span></div>
+      ${hasCur ? `<div class="save-hero ${cur - cheap.total > 0 ? "" : "neutral"}"><div>${icon("trend")}<div><small>Aujourd'hui : ${tnd(cur)} / an</small><b>${cur - cheap.total > 0 ? `Économisez jusqu'à ${tnd(cur - cheap.total)} par an` : "Vous payez déjà un bon prix"}</b><span>avec « ${esc(cheap.title)} » : ${tnd(cheap.total)} / an, soit ${tnd(cheap.total / 12)} / mois</span></div></div></div>` : ""}
+      <div class="scen-grid four">${S.map((s) => scenCard(s, [s === cheap ? "cheap" : ""], 1, `${tnd(s.total / 12)} / mois · par an`)).join("")}</div>
+      <h2 style="margin:34px 0 4px;letter-spacing:-.5px">Récapitulatif annuel</h2><p class="muted" style="margin:0">Remises multi-services éventuelles non incluses — demandez-les à l'opérateur.</p>
+      ${recapTable(S, [
+        ["Total annuel", (s) => ({ n: Math.round(s.total), t: `<b>${tnd(s.total)}</b>` }), "min"],
+        ["Par mois", (s) => ({ n: Math.round(s.total / 12), t: tnd(s.total / 12) }), "min"],
+        ["Internet / an", (s) => { const p = s.parts.find((x) => x.c === C.net); return { n: p ? Math.round(p.v) : 0, t: p ? tnd(p.v) : "—" }; }, "min"],
+        ["Mobiles / an", (s) => { const p = s.parts.find((x) => x.c === C.mob); return { n: p ? Math.round(p.v) : 0, t: p ? tnd(p.v) : "—" }; }, "min"],
+        ...(hasCur ? [["Économie vs aujourd'hui", (s) => ({ n: Math.round(cur - s.total), t: tnd(cur - s.total) }), "max"]] : [])
+      ])}
+      ${note("<b>Données de démonstration.</b> Calcul : Internet = abonnement + frais d'installation lissés sur 24 mois ; mobiles = forfait le moins cher couvrant la data demandée ; assurance = estimation la plus basse pour votre profil.")}
+    </div></div>`;
+    $("#bf").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); Object.keys(p).forEach((k) => p[k] === "" && delete p[k]); go("budget-foyer", p); });
+  }
+
+  /* =========================================================
+     DONNÉES & MÉTHODOLOGIE
+     ========================================================= */
+  function dataPage() {
+    document.title = "Nos données & méthodologie — Qarin.tn";
+    const LBL = { internet: "Internet", mobile: "Forfaits mobiles", vols: "Vols", hotels: "Hôtels", ferry: "Ferry", voiture: "Location de voiture", assurance: "Assurance auto", credit: "Crédit", transfert: "Transfert d'argent" };
+    app.innerHTML = pageHead("database", "Nos données & méthodologie", "D'où viennent les prix, ce qu'ils valent, et comment nous les corrigeons.", "Données") + `<div class="container"><div class="prose wide">
+      ${DEMO ? `<div class="note">${icon("alert")}<div><b>Ce site est actuellement une version de démonstration.</b> Les prix affichés sont fictifs ou estimés par des modèles. Ils ne proviennent pas des fournisseurs cités et ne constituent ni une offre ni un devis.</div></div>` : ""}
+      <h2>Statut des données par comparateur</h2>
+      <div class="ctable-wrap"><table class="cmp data-t"><thead><tr><th>Comparateur</th><th>Statut</th><th>Origine actuelle</th><th>Source prévue (légale)</th></tr></thead><tbody>
+      ${Object.entries(D.meta.cats).map(([k, c]) => `<tr><td><b>${LBL[k]}</b></td><td><span class="ribbon ${c.status === "Démo" ? "r-hot" : "r-ok"}">${esc(c.status)}</span></td><td>${esc(c.origin)}</td><td>${esc(c.real)}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="muted">Dernière mise à jour : ${frDate(D.meta.updated, { day: "numeric", month: "long", year: "numeric" })} · Taux de référence : 1 € = ${f3(D.meta.eurTnd)} DT · TMM ${D.meta.tmm.toFixed(2).replace(".", ",")} %</p>
+      <h2>Nos engagements</h2>
+      <ul class="checklist">
+        <li>${icon("check")}<span><b>Transparence</b> : chaque prix affiche son statut (démonstration, estimation ou source officielle avec date de relevé).</span></li>
+        <li>${icon("check")}<span><b>Neutralité</b> : le classement dépend uniquement des critères affichés et de vos priorités ; aucun fournisseur ne paie pour être mieux classé.</span></li>
+        <li>${icon("check")}<span><b>Marques</b> : les noms de fournisseurs sont cités uniquement pour les identifier. Nous n'utilisons pas leurs logos.</span></li>
+        <li>${icon("check")}<span><b>Droit de rectification</b> : tout fournisseur ou visiteur peut signaler une erreur (bouton « Signaler une erreur » sur chaque offre). Les corrections sont traitées en priorité.</span></li>
+        <li>${icon("check")}<span><b>Affiliation déclarée</b> : si un lien devient rémunéré, il sera signalé comme tel. Cela ne change ni le prix ni le classement.</span></li>
+        <li>${icon("check")}<span><b>Vie privée</b> : aucune donnée personnelle collectée ; vos réglages et favoris restent dans votre navigateur.</span></li>
+      </ul>
+      <h2>Comment les vrais prix seront intégrés</h2>
+      <ol class="steps-list">
+        <li><b>Tarifs publics</b> (Internet, mobile, frais bancaires) : relevés sur les pages officielles des fournisseurs, avec l'adresse de la page et la date du relevé affichées sur chaque offre.</li>
+        <li><b>Voyages</b> (vols, hôtels, location, ferry) : via des programmes d'affiliation ou des API officielles qui autorisent l'affichage de leurs prix.</li>
+        <li><b>Produits réglementés</b> (assurance, crédit) : partenariats avec les établissements ou des intermédiaires agréés. Qarin.tn ne fait qu'orienter vers l'établissement ; le devis ou l'offre de crédit est établi par lui.</li>
+        <li><b>Pas d'aspiration sauvage</b> de sites tiers contre leurs conditions d'utilisation.</li>
+      </ol>
+      <h2>Méthode de calcul</h2>
+      <p>Le <b>score sur 10</b> pondère plusieurs critères (prix, performance, flexibilité, service…) normalisés entre l'offre la moins bonne et la meilleure du marché. Les pondérations par défaut sont visibles et modifiables dans « Mes priorités ». Les coûts totaux incluent les frais connus (installation, frais de dossier, frais d'envoi, marge de change…).</p>
+    </div></div>`;
+  }
+
+  /* =========================================================
      PAGES SIMPLES
      ========================================================= */
   function favPage() {
@@ -976,7 +1412,11 @@
   function legalPage() {
     document.title = "Mentions légales — Qarin.tn";
     app.innerHTML = pageHead("file", "Mentions légales & confidentialité", "Informations légales et protection des données.", "Mentions légales") + `<div class="container"><div class="prose">
-      <h2>Éditeur</h2><p>Qarin.tn est un service de comparaison indépendant, affilié à aucun des fournisseurs cités. Les marques citées appartiennent à leurs propriétaires respectifs et ne sont utilisées qu'à des fins d'identification.</p>
+      <h2>Éditeur</h2><p>[À compléter avant mise en production : nom ou raison sociale, forme juridique, identifiant unique (RNE), adresse, e-mail de contact, directeur de la publication.]</p><p>Qarin.tn est un service de comparaison indépendant, affilié à aucun des fournisseurs cités.</p>
+      <h2>Hébergement</h2><p>GitHub Pages — GitHub, Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis.</p>
+      <h2>Statut des données</h2><p>${DEMO ? "<b>Version de démonstration :</b> les prix affichés sont fictifs ou estimés et ne proviennent pas des fournisseurs cités. Ils ne constituent ni une offre commerciale, ni un devis, ni une recommandation personnalisée. " : ""}Détails dans la page <a href="#/donnees">Nos données & méthodologie</a>.</p>
+      <h2>Marques</h2><p>Les noms de marques cités appartiennent à leurs propriétaires respectifs et sont utilisés uniquement pour identifier les offres comparées. Aucun logo n'est reproduit. Un fournisseur peut demander la correction ou le retrait d'une information via « Signaler une erreur ».</p>
+      <h2>Assurance, crédit et transferts</h2><p>Qarin.tn n'est ni intermédiaire d'assurance, ni établissement de crédit, ni intermédiaire en opérations de banque, ni établissement de paiement. Les estimations affichées sont non contractuelles ; seuls les établissements concernés peuvent établir un devis ou une offre.</p>
       <h2>Données personnelles</h2><p>Le site ne demande aucune inscription et ne collecte aucune donnée personnelle. Vos critères, priorités et favoris sont enregistrés uniquement dans votre navigateur (stockage local). Aucun cookie publicitaire n'est utilisé.</p>
       <h2>Liens externes</h2><p>Les boutons « Voir l'offre » vous redirigent vers les sites des fournisseurs ou de partenaires de réservation, qui appliquent leurs propres conditions et politiques de confidentialité.</p>
       <h2>Responsabilité</h2><p>Les informations sont fournies à titre indicatif. Qarin.tn ne saurait être tenu responsable d'un écart entre les prix affichés et les prix pratiqués par les fournisseurs.</p></div></div>`;
@@ -987,7 +1427,7 @@
   }
 
   /* ================= routeur ================= */
-  const routes = { "": home, internet: internetPage, mobile: mobilePage, vols: flightsPage, hotels: hotelsPage, "assurance-auto": insurancePage, "location-voiture": carPage, favoris: favPage, "a-propos": aboutPage, mentions: legalPage };
+  const routes = { "": home, internet: internetPage, mobile: mobilePage, vols: flightsPage, hotels: hotelsPage, ferry: ferryPage, "assurance-auto": insurancePage, "location-voiture": carPage, transfert: transferPage, credit: creditPage, "pack-voyage": packPage, "budget-foyer": budgetPage, donnees: dataPage, favoris: favPage, "a-propos": aboutPage, mentions: legalPage };
   function router() {
     const [path, qs] = location.hash.replace(/^#\/?/, "").split("?");
     const fn = routes[path] || notFound;
@@ -996,12 +1436,16 @@
     try { fn(new URLSearchParams(qs || ""), path); } catch (err) { console.error(err); notFound(); }
     renderCmpBar();
     $$("nav.main a").forEach((a) => a.classList.toggle("active", path !== "" && a.getAttribute("href") === "#/" + path));
+    $$("nav.main .dd").forEach((dd) => { dd.classList.remove("open"); $(".dd-btn", dd).classList.toggle("active", !!$("a.active", dd)); });
     $("nav.main").classList.remove("open");
     window.scrollTo(0, 0);
   }
 
   /* ================= initialisation ================= */
-  $$("nav.main a[data-ic]").forEach((a) => a.insertAdjacentHTML("afterbegin", icon(a.dataset.ic)));
+  $$("nav.main [data-ic]").forEach((a) => a.insertAdjacentHTML("afterbegin", icon(a.dataset.ic)));
+  $$("nav.main .dd-btn").forEach((b) => b.addEventListener("click", () => { const dd = b.parentElement, was = dd.classList.contains("open"); $$("nav.main .dd").forEach((x) => x.classList.remove("open")); dd.classList.toggle("open", !was); b.setAttribute("aria-expanded", !was); }));
+  document.addEventListener("click", (e) => { if (!e.target.closest(".dd")) $$("nav.main .dd.open").forEach((x) => x.classList.remove("open")); });
+  if (DEMO) { $("#demoBar").hidden = false; $("#demoBar").insertAdjacentHTML("afterbegin", icon("alert")); }
   $("#favBtn").insertAdjacentHTML("afterbegin", icon("heart"));
   $(".burger").innerHTML = icon("menu");
   $("#toTop").innerHTML = icon("arrowUp");
