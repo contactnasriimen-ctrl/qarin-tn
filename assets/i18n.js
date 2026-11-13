@@ -197,6 +197,7 @@
     [/^Disponibilités$/, "التوفر"], [/^Réserver$/, "احجز"], [/^Site de la banque$/, "موقع البنك"], [/^Site du service$/, "موقع الخدمة"],
     [/^par pers\. (aller-retour|aller simple)$/, (m, x) => "للشخص " + (x === "aller-retour" ? "ذهاب وإياب" : "ذهاب فقط")], [/^\/ nuit \/ pers\.$/, "/ ليلة / شخص"],
     [/\bDT\/mois\b/g, "د.ت/شهر"], [/\bDT\/an\b/g, "د.ت/سنة"], [/\bDT\/jour\b/g, "د.ت/يوم"], [/^DT$/, "د.ت"], [/(\d)\s?DT\b/g, "$1 د.ت"], [/(\d) Go\b/g, "$1 جيغا"], [/\/ mois$/, "/ شهر"], [/\/ pers\.$/, "/ شخص"], [/^\/ nuit$/, "/ ليلة"],
+    [/(\d) étoiles/g, "$1 نجوم"], [/\bnuits\b/g, "ليالٍ"], [/\bhôtel\b/g, "نزل"],
     [/^le séjour$/, "الإقامة"], [/^par an$/, "في السنة"], [/^par pèlerin$/, "لكل معتمر"], [/^livré$/, "مع التوصيل"], [/^Montant reçu$/, "المبلغ المستلم"]
   ];
   function tr(s) {

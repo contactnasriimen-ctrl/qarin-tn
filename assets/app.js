@@ -106,7 +106,7 @@
   function toast(msg, ic) { const t = $("#toast"); t.innerHTML = icon(ic || "check") + esc(msg); t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2300); }
   function go(path, params) { const q = params ? "?" + new URLSearchParams(params).toString() : ""; location.hash = "#/" + path + q; }
   const opt = (v, label, sel) => `<option value="${esc(v)}" ${String(v) === String(sel) ? "selected" : ""}>${esc(label)}</option>`;
-  const starsHtml = (n) => `<span class="stars" aria-label="${n} étoiles">${"★".repeat(n)}</span>`;
+  const starsHtml = (n) => `<span class="stars" role="img" aria-label="${n} étoiles">${Array.from({ length: n }, () => icon("star")).join("")}</span>`;
   const scoreLabel = (s) => (s >= 9 ? "Excellent" : s >= 8.2 ? "Très bien" : s >= 7.4 ? "Bien" : s >= 6.5 ? "Correct" : "Moyen");
   const note = (html) => `<div class="note">${icon("info")}<div>${html}</div></div>`;
   const NOTE_DEFAULT = "<b>Tarifs indicatifs</b> — estimations établies à partir des grilles publiques. Le prix final est toujours confirmé sur le site du fournisseur.";
@@ -534,7 +534,7 @@
         <div class="section-title"><span class="kicker">Mis à jour en continu</span><h2>Les bons plans du moment</h2><p>Calculés automatiquement à partir de nos comparateurs.</p></div>
         <div class="deals">
           ${dealCard("linear-gradient(135deg,#0a5c8a,#14b8a6)", "plane", "Vol aller · Tunis → Paris", fl.p, fl.price, "/ pers.", "#/vols?from=TUN&to=CDG&date=" + inDays(30))}
-          ${dealCard("linear-gradient(135deg,#0891b2,#6366f1)", "hotel", `Djerba · ${ht.stars}★ · ${ht.board}`, ht.name, ht.night, "/ nuit", "#/hotels?dest=djerba")}
+          ${dealCard("linear-gradient(135deg,#0891b2,#6366f1)", "hotel", `Djerba · ${ht.stars} étoiles · ${ht.board}`, ht.name, ht.night, "/ nuit", "#/hotels?dest=djerba")}
           ${dealCard("linear-gradient(135deg,#7c3aed,#db2777)", "wifi", "Fibre la moins chère", `${fibre.p} · ${fibre.down} Mbps`, fibre.price, "/ mois", "#/internet?tech=Fibre")}
           ${dealCard("linear-gradient(135deg,#059669,#65a30d)", "phone", "Meilleur prix au Go", `${mob.p} · ${mob.data} Go`, mob.price, "/ mois", "#/mobile")}
         </div>
@@ -902,11 +902,11 @@
         <div class="meters">${meter("Note clients", (h.rating - 6) * 25, h.rating + "/10")}</div>${feats(h.feats)}<small class="muted" style="display:block;margin-top:8px">${nf.format(h.reviews)} avis vérifiés</small>`,
       details: (h) => `<table><tr><td>${nights} nuits × ${ad} adulte${ad > 1 ? "s" : ""} × ${tnd(h.night)}</td><td>${tnd(h.night * nights * ad)}</td></tr><tr><td>Pension</td><td>${esc(h.board)}</td></tr><tr class="total"><td>Total séjour estimé</td><td>${tnd(h.night * nights * ad)}</td></tr></table>`,
       side: (h) => `<div><div class="price-sub">dès</div><div class="price-big">${nf.format(h.night)}<sup>DT</sup></div><div class="price-sub">/ nuit / pers.<br><b>${tnd(h.night * nights * ad)}</b> le séjour</div></div>`,
-      cta: "Disponibilités", url: () => booking, fav: (h) => ({ title: h.name, sub: `${city.name} · ${h.stars}★ · ${h.board}`, price: tnd(h.night) + "/nuit" }),
-      label: (h) => h.name, sublabel: (h) => `${h.stars}★ · ${h.type}`,
+      cta: "Disponibilités", url: () => booking, fav: (h) => ({ title: h.name, sub: `${city.name} · ${h.stars} étoiles · ${h.board}`, price: tnd(h.night) + "/nuit" }),
+      label: (h) => h.name, sublabel: (h) => `${h.stars} étoiles · ${h.type}`,
       compare: [
         { g: "Prix" }, ["Prix / nuit / pers.", (h) => ({ n: h.night, t: tnd(h.night) }), "min"], ["Total séjour", (h) => ({ n: h.night * nights * ad, t: tnd(h.night * nights * ad) }), "min"],
-        { g: "Qualité" }, ["Note clients", (h) => ({ n: h.rating, t: h.rating + "/10" }), "max"], ["Nombre d'avis", (h) => ({ n: h.reviews, t: nf.format(h.reviews) }), "max"], ["Étoiles", (h) => ({ n: h.stars, t: "★".repeat(h.stars) }), "max", false], ["Pension", (h) => h.board],
+        { g: "Qualité" }, ["Note clients", (h) => ({ n: h.rating, t: h.rating + "/10" }), "max"], ["Nombre d'avis", (h) => ({ n: h.reviews, t: nf.format(h.reviews) }), "max"], ["Étoiles", (h) => ({ n: h.stars, t: starsHtml(h.stars) }), "max", false], ["Pension", (h) => h.board],
         ["Plage", (h) => ({ n: h.beach, t: beachTxt(h) }), "min", false],
         { g: "Équipements" }, ...FEATS.map((f) => [f, (h) => yes(h.feats.includes(f)), "max", false])
       ],
@@ -1274,7 +1274,7 @@
     const all = genHotels(city.id, din, nights), hs = all.filter((h) => h.stars === stars);
     const hotel = (hs.length ? hs : all).reduce((a, b) => (b.rating * 40 - b.night > a.rating * 40 - a.night ? b : a));
     const hotelCost = hotel.night * nights * (ad + ch * 0.5);
-    const hotelPart = { l: `${hotel.name} ${hotel.stars}★ · ${nights} nuits · ${hotel.board}`, v: hotelCost, c: C.hotel, href: `#/hotels?dest=${city.id}&in=${din}&out=${dout}&ad=${ad}` };
+    const hotelPart = { l: `${hotel.name} · ${hotel.stars} étoiles · ${nights} nuits · ${hotel.board}`, v: hotelCost, c: C.hotel, href: `#/hotels?dest=${city.id}&in=${din}&out=${dout}&ad=${ad}` };
     // avion
     const fo = minBy(genFlights(g.apt, o.air, din, "eco"), (f) => f.price), fr = minBy(genFlights(g.apt, o.air, dout, "eco"), (f) => f.price);
     const flightCost = (fo.price + fr.price) * pax;
@@ -1532,7 +1532,7 @@
   /* ================= API interne pour les modules (more.js, i18n.js) ================= */
   window.Q = {
     D, $, $$, esc, nf, tnd, eur, f2, f3, clamp, rng, hashStr, iso, inDays, addDays, daysBetween, frDate, validDate, hm, dur, pad, LS,
-    icon, badge, badgeOf, purl, opt, go, note, feats, meter, spec, yes, pageHead, listPage, toast, openModal, closeModal, scoreLabel,
+    icon, starsHtml, badge, badgeOf, purl, opt, go, note, feats, meter, spec, yes, pageHead, listPage, toast, openModal, closeModal, scoreLabel,
     minBy, scenCard, recapTable, C, DEMO, genFlights, genFerries, genHotels, genCars, insQuotes, ALERTS, alertPrice, addAlert,
     routes, router, app: () => app, setApp: (el) => (app = el), P
   };

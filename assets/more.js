@@ -127,11 +127,11 @@
     listPage({
       key: "omra", icon: "moon", title: "Omra", crumb: "Omra", cmpTitle: "Omra", unit: "formules",
       sub: `${ram ? "Pendant le Ramadan" : "Hors Ramadan"} · chambre ${{ 4: "quadruple", 3: "triple", 2: "double" }[room]} · ${pax} pèlerin${pax > 1 ? "s" : ""}`, searchForm: form, items,
-      label: (it) => `${it.name} · ${it.p}`, sublabel: (it) => `${it.f.days} jours · hôtel ${it.f.stars}★`,
+      label: (it) => `${it.name} · ${it.p}`, sublabel: (it) => `${it.f.days} jours · hôtel ${it.f.stars} étoiles`,
       top: `<div class="assist"><div><b>${icon("info")}Et le Hajj ?</b><small>En Tunisie, le Hajj passe par un tirage au sort et un cadre fixé par les autorités : il n'est donc pas comparé ici. Renseignez-vous auprès du ministère des Affaires religieuses.</small></div></div>`,
       note: "<b>Formules types de démonstration</b> — les agences sont anonymisées en attendant des partenariats avec des agences de voyage agréées. Vérifiez toujours l'agrément de l'agence avant de payer.",
       price: (it) => it.per, cost: (it) => it.total, costLabel: "pour le groupe",
-      perf: { label: "Le plus proche du Haram", icon: "pin", get: (it) => -it.f.dist, text: (it) => it.f.dist + " m · hôtel " + it.f.stars + "★" },
+      perf: { label: "Le plus proche du Haram", icon: "pin", get: (it) => -it.f.dist, text: (it) => it.f.dist + " m · " + Q.starsHtml(it.f.stars) },
       criteria: [{ k: "price", label: "Prix", get: (it) => it.per, better: "min", def: 4 }, { k: "dist", label: "Proximité du Haram", get: (it) => it.f.dist, better: "min", def: 3 }, { k: "stars", label: "Catégorie d'hôtel", get: (it) => it.f.stars, better: "max", def: 2 }, { k: "direct", label: "Vol direct", get: (it) => +it.f.direct, better: "max", def: 1 }],
       presets: [{ label: "Économique", w: { price: 5, dist: 1, stars: 0, direct: 0 } }, { label: "Proche du Haram", w: { price: 2, dist: 5, stars: 2, direct: 1 } }, { label: "Confort", w: { price: 1, dist: 3, stars: 5, direct: 3 } }],
       filters: [{ key: "stars", type: "checks", label: "Hôtel", options: [["5", "5 étoiles"], ["4", "4 étoiles"], ["3", "3 étoiles"]], get: (it) => it.f.stars }, { key: "direct", type: "toggle", label: "Vol direct", test: (it) => it.f.direct }, { key: "dist", type: "select", label: "Distance du Haram", options: [[5000, "Peu importe"], [1000, "≤ 1 km"], [500, "≤ 500 m"], [200, "≤ 200 m"]], def: "5000", test: (it, v) => it.f.dist <= +v, chip: (v) => `≤ ${v} m du Haram` }, { key: "ag", type: "checks", label: "Agences", options: D.omraAgencies.map((a) => "Agence " + a), get: (it) => it.p }],
@@ -139,10 +139,10 @@
       ribbons: (it) => (it.f.direct ? `<span class="ribbon r-info">${icon("plane")}Vol direct</span>` : "") + `<span class="ribbon r-info">${esc(it.f.meals)}</span>`,
       card: (it) => `<div class="head">${stepBadge(it.short, it.color)}<div><h3>${esc(it.name)}</h3><small>${esc(it.p)} (agréée) · ${it.f.days} jours</small></div></div>
         <div class="meters">${meter("Proximité", 100 - (it.f.dist / 1200) * 100, it.f.dist + " m")}</div>
-        <div class="specs">${spec("Durée", it.f.days + " jours")}${spec("Hôtel", it.f.stars + "★")}${spec("Vol", it.f.direct ? "Direct" : "Avec escale")}${spec("Repas", esc(it.f.meals))}</div>${feats(["Visa inclus", "Transferts inclus", "Accompagnateur"])}`,
+        <div class="specs">${spec("Durée", it.f.days + " jours")}${spec("Hôtel", Q.starsHtml(it.f.stars))}${spec("Vol", it.f.direct ? "Direct" : "Avec escale")}${spec("Repas", esc(it.f.meals))}</div>${feats(["Visa inclus", "Transferts inclus", "Accompagnateur"])}`,
       side: (it) => `<div><div class="price-big">${nf.format(it.per)}<sup>DT</sup></div><div class="price-sub">par pèlerin<br><b>${tnd(it.total)}</b> pour ${pax}</div></div>`,
       cta: "Bientôt disponible", url: () => "#/donnees", fav: (it) => ({ title: `Omra · ${it.name}`, sub: `${it.p} · ${it.f.days} j`, price: tnd(it.per) }),
-      compare: [{ g: "Prix" }, ["Par pèlerin", (it) => ({ n: it.per, t: tnd(it.per) }), "min"], ["Total", (it) => ({ n: it.total, t: tnd(it.total) }), "min"], { g: "Séjour" }, ["Durée", (it) => it.f.days + " jours"], ["Hôtel", (it) => ({ n: it.f.stars, t: it.f.stars + "★" }), "max"], ["Distance du Haram", (it) => ({ n: it.f.dist, t: it.f.dist + " m" }), "min"], ["Vol direct", (it) => yes(it.f.direct), "max", false], ["Repas", (it) => it.f.meals]],
+      compare: [{ g: "Prix" }, ["Par pèlerin", (it) => ({ n: it.per, t: tnd(it.per) }), "min"], ["Total", (it) => ({ n: it.total, t: tnd(it.total) }), "min"], { g: "Séjour" }, ["Durée", (it) => it.f.days + " jours"], ["Hôtel", (it) => ({ n: it.f.stars, t: Q.starsHtml(it.f.stars) }), "max", false], ["Distance du Haram", (it) => ({ n: it.f.dist, t: it.f.dist + " m" }), "min"], ["Vol direct", (it) => yes(it.f.direct), "max", false], ["Repas", (it) => it.f.meals]],
       after: () => submitTo("#oms", "omra")
     }, params, path);
   };
@@ -313,7 +313,7 @@
           <div class="field"><label>Frais divers (DT)</label><input type="number" name="fees" value="${fees}" min="0"></div>
         </div></details></form>
       <div style="padding:24px 0 70px">
-        <div class="note" style="background:var(--hot-soft);border-color:color-mix(in srgb,var(--hot) 35%,transparent)">${icon("alert")}<div><b>Important — simulation indicative.</b> Les conditions du régime FCR (éligibilité, âge maximal du véhicule, fréquence, cylindrée) et les taux de droits changent selon les lois de finances. Les valeurs par défaut sont des <b>exemples à vérifier auprès de la Douane tunisienne</b> ou d'un transitaire agréé. ${age > 5 ? "<br>⚠️ Les véhicules anciens peuvent être exclus de certains avantages." : ""}</div></div>
+        <div class="note" style="background:var(--hot-soft);border-color:color-mix(in srgb,var(--hot) 35%,transparent)">${icon("alert")}<div><b>Important — simulation indicative.</b> Les conditions du régime FCR (éligibilité, âge maximal du véhicule, fréquence, cylindrée) et les taux de droits changent selon les lois de finances. Les valeurs par défaut sont des <b>exemples à vérifier auprès de la Douane tunisienne</b> ou d'un transitaire agréé. ${age > 5 ? `<br><span class="inl-warn">${icon("alert")}Les véhicules anciens peuvent être exclus de certains avantages.</span>` : ""}</div></div>
         <div class="save-hero"><div>${icon("scale")}<div><small>Taux de référence 1 € = ${f2(D.meta.eurTnd)} DT · taxes complètes estimées ${tnd(taxes)}</small><b>${esc(cheap.title)} : ${tnd(cheap.total)}</b><span>soit ${tnd(dear.total - cheap.total)} de moins que l'option la plus chère</span></div></div></div>
         <div class="scen-grid">${S.map((s) => scenCard(s, [s === cheap ? "cheap" : ""], 1, "coût total estimé")).join("")}</div>
         <h2 style="margin:30px 0 10px;letter-spacing:-.5px">Détail des taxes (régime commun)</h2>
