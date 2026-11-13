@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qarin.tn — Comparez et économisez en Tunisie</title>
+  <meta name="description" content="Comparateur tunisien gratuit : Internet (fibre, VDSL, 4G/5G), forfaits mobiles, vols, hôtels, assurance auto et location de voiture. Trouvez la meilleure offre en 2 minutes.">
+  <meta name="theme-color" content="#0a5c8a">
+  <meta property="og:title" content="Qarin.tn — Comparez tout en Tunisie">
+  <meta property="og:description" content="Internet, mobile, vols, hôtels, assurance auto, location de voiture : comparez gratuitement.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Kufi+Arabic:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Qarin.tn","description":"Comparateur tunisien : Internet, mobile, vols, hôtels, assurance auto, location de voiture.","inLanguage":"fr-TN"}</script>
+</head>
+<body>
+  <div class="topbar"><div class="container">
+    <span>📍 Le comparateur 100 % tunisien</span>
+    <span class="hide-sm">✅ Gratuit · ⚖️ Neutre · 🔒 Sans inscription</span>
+  </div></div>
+  <header class="site"><div class="container">
+    <a class="logo" href="#/" aria-label="Qarin.tn accueil">
+      <span class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="11" width="4" height="9" rx="1.5" fill="#0a5c8a"/><rect x="10" y="6" width="4" height="14" rx="1.5" fill="#e63946"/><rect x="17" y="3" width="4" height="17" rx="1.5" fill="#0e7490"/></svg></span>
+      <span>Qarin<span style="color:#ffd166">.tn</span><small>Comparez. Économisez.</small></span>
+    </a>
+    <nav class="main" aria-label="Navigation principale">
+      <a href="#/internet">📶 Internet</a>
+      <a href="#/mobile">📱 Mobile</a>
+      <a href="#/vols">✈️ Vols</a>
+      <a href="#/hotels">🏨 Hôtels</a>
+      <a href="#/assurance-auto">🚗 Assurance</a>
+      <a href="#/location-voiture">🔑 Location</a>
+    </nav>
+    <button class="burger" aria-label="Menu">☰</button>
+  </div></header>
+
+  <main id="app"><div class="container" style="padding:40px 0"><div class="skeleton"></div><div class="skeleton"></div></div></main>
+
+  <footer class="site"><div class="container">
+    <div class="cols">
+      <div>
+        <h4>Qarin.tn <span class="ar" lang="ar">قارن</span></h4>
+        <p>Le comparateur indépendant pour les consommateurs tunisiens. Comparez Internet, téléphonie, voyages et assurances en toute transparence.</p>
+      </div>
+      <div><h4>Télécom</h4><a href="#/internet">Internet & Fibre</a><a href="#/internet?tech=5G%20Box">Box 4G / 5G</a><a href="#/mobile">Forfaits mobiles</a></div>
+      <div><h4>Voyage</h4><a href="#/vols">Vols</a><a href="#/hotels">Hôtels</a><a href="#/location-voiture">Location de voiture</a></div>
+      <div><h4>Qarin.tn</h4><a href="#/assurance-auto">Assurance auto</a><a href="#/a-propos">À propos</a><a href="#/mentions">Mentions légales</a></div>
+    </div>
+    <div class="legal"><span>© <span id="year"></span> Qarin.tn — Tarifs indicatifs, à confirmer auprès des fournisseurs.</span><span>Les marques citées appartiennent à leurs propriétaires respectifs.</span></div>
+  </div></footer>
+
+  <div class="cmp-bar" id="cmpBar" role="region" aria-label="Comparateur">
+    <div class="chips"></div>
+    <button class="btn btn-primary" id="cmpGo">Comparer</button>
+    <button class="btn" id="cmpClear" style="background:transparent;color:#fff" aria-label="Vider">✕</button>
+  </div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="box"><button class="close" aria-label="Fermer">×</button><div id="modalBody"></div></div></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
