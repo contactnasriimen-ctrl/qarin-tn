@@ -19,7 +19,7 @@
   const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); };
   const inDays = (n) => { const d = today(); d.setDate(d.getDate() + n); return iso(d); };
   const daysBetween = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 864e5);
-  const frDate = (s, o) => new Date(s + "T00:00:00").toLocaleDateString("fr-FR", o || { weekday: "short", day: "numeric", month: "short" });
+  const frDate = (s, o) => new Date(s + "T00:00:00").toLocaleDateString(document.documentElement.lang === "ar" ? "ar-TN" : "fr-FR", o || { weekday: "short", day: "numeric", month: "short" });
   const hm = (min) => pad(Math.floor(min / 60) % 24) + ":" + pad(min % 60);
   const dur = (min) => Math.floor(min / 60) + " h " + pad(min % 60);
   const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(new Date(s + "T00:00:00"));
@@ -82,12 +82,20 @@
     flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
     wallet: '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
     alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    msg: '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
+    cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    bus: '<path d="M8 6v6M15 6v6M2 12h19.6M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2s-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+    train: '<rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16M12 3v8M8 19l-2 3M18 22l-2-3M8 15h.01M16 15h.01"/>',
+    gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+    laptop: '<path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/>',
+    umbrella: '<path d="M22 12a10.06 10.06 1 0 0-20 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 2v1"/>',
     database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>'
   };
   const DEMO = D.meta.mode === "demo";
   const reportLink = (what) => `${D.meta.reportUrl}?title=${encodeURIComponent("Erreur de données : " + what)}`;
   const eur = (dt) => nf.format(Math.round(dt / D.meta.eurTnd)) + " €";
-  const icon = (n, c) => `<svg class="i ${c || ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
+  const icon = (n, c) => `<svg class="i ${c || ""}${n === "arrow" || n === "chevR" ? " dirx" : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
 
   function badge(p) {
     const x = D.providers[p] || { short: String(p).replace(/^(Hôtel|Dar)\s+/, "").slice(0, 2).toUpperCase(), color: "#334155" };
@@ -184,7 +192,7 @@
     openModal(`<div class="mpad">
       <div class="cmp-head"><div><h2>Comparatif ${esc(cfg.cmpTitle)}</h2><p>${its.length} offres analysées selon vos priorités</p></div>
         <div class="cmp-actions"><label class="switch" style="gap:10px"><span>Différences uniquement</span><input type="checkbox" id="diffOnly"></label>
-        <button type="button" class="btn btn-ghost btn-sm" id="cmpShare">${icon("share")}Partager</button><button type="button" class="btn btn-ghost btn-sm" id="cmpPrint">${icon("printer")}Imprimer</button></div></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="cmpShare">${icon("share")}Partager</button><a class="btn btn-ghost btn-sm" id="cmpWa" target="_blank" rel="noopener">${icon("msg")}WhatsApp</a><button type="button" class="btn btn-ghost btn-sm" id="cmpPrint">${icon("printer")}Imprimer</button></div></div>
       <div class="verdict">
         <div class="vcard win"><small>${icon("crown")}Meilleur choix pour vous</small><b>${nm(best)}</b><span>Score ${best._s.toFixed(1)}/10 · ${Math.round(best._m * 100)} % de correspondance</span></div>
         <div class="vcard cheap"><small>${icon("tag")}Le plus économique</small><b>${nm(cheap)}</b><span>${saving > 0 ? `Économie de <b>${tnd(saving)}</b> ${esc(cfg.costLabel || "")} face à ${nm(dear)}` : "Prix équivalents"}</span></div>
@@ -194,6 +202,8 @@
       <p class="muted" style="font-size:12.5px;margin:12px 0 0">Cellules vertes = meilleure valeur sur la ligne. Tarifs indicatifs, à confirmer chez le fournisseur.</p></div>`);
     $("#diffOnly").addEventListener("change", (e) => $("#cmpTable").classList.toggle("diff", e.target.checked));
     $("#cmpPrint").addEventListener("click", () => window.print());
+    { const p = new URLSearchParams(cmp.params); p.set("cmp", cmp.ids.join(",")); const url = location.href.split("#")[0] + "#/" + cmp.path + "?" + p.toString();
+      $("#cmpWa").href = "https://wa.me/?text=" + encodeURIComponent(`Comparatif ${cfg.cmpTitle} sur Qarin.tn — meilleur choix : ${cfg.label ? cfg.label(best) : best.name}\n${url}`); }
     $("#cmpShare").addEventListener("click", () => {
       const p = new URLSearchParams(cmp.params); p.set("cmp", cmp.ids.join(","));
       const url = location.href.split("#")[0] + "#/" + cmp.path + "?" + p.toString();
@@ -386,7 +396,19 @@
       ["vols", "plane", "Vols", `${D.destinations.length} destinations, 6 aéroports`, "#e63946"], ["hotels", "hotel", "Hôtels", `${D.cities.length} régions balnéaires & Sahara`, "#f59e0b"],
       ["ferry", "ship", "Ferry", `${D.ferryRoutes.length} ports d'Europe → Tunis`, "#0e7490"], ["location-voiture", "key", "Location de voiture", "Aéroports & centres-villes", "#d97706"],
       ["assurance-auto", "shield", "Assurance auto", `${D.insurers.length} assureurs comparés`, "#10b981"], ["credit", "bank", "Crédit", "Immobilier, auto, consommation", "#4f46e5"],
-      ["transfert", "send", "Transfert d'argent", "Europe → Tunisie, montant reçu", "#db2777"]
+      ["transfert", "send", "Transfert d'argent", "Europe → Tunisie, montant reçu", "#db2777"],
+      ["vitesse", "gauge", "Vitesse Internet réelle", "Test + carte par gouvernorat", "#0284c7"], ["transport", "bus", "Louage, train, bus", "Trajets entre villes", "#ea580c"],
+      ["assurance-voyage", "umbrella", "Assurance voyage", "Visa Schengen, monde", "#0891b2"], ["omra", "moon", "Omra", "Formules des agences", "#047857"],
+      ["panier", "cart", "Panier « Qoffa »", "Courses : quelle enseigne ?", "#dc2626"], ["high-tech", "laptop", "Smartphones & high-tech", "Prix entre boutiques", "#7c3aed"],
+      ["solaire", "sun", "Énergie solaire", "Kit Prosol : coût & rentabilité", "#ca8a04"], ["budget-foyer", "home", "Budget foyer", "Toutes vos factures", "#9333ea"],
+      ["fcr", "car", "Calculateur FCR", "Importer sa voiture ?", "#b91c1c"], ["pack-voyage", "globe", "Pack vacances", "Avion vs ferry, porte-à-porte", "#0e7490"]
+    ];
+    const GROUPS = [
+      ["Télécom", "wifi", ["internet", "mobile", "vitesse"]],
+      ["Voyage & mobilité", "plane", ["vols", "hotels", "location-voiture", "transport", "assurance-voyage", "omra"]],
+      ["Maison & consommation", "home", ["panier", "high-tech", "solaire", "budget-foyer"]],
+      ["Argent & assurance", "wallet", ["assurance-auto", "credit", "transfert"]],
+      ["Tunisiens à l'étranger", "globe", ["pack-voyage", "ferry", "fcr", "transfert"]]
     ];
     const TABS = [["vols", "plane", "Vols"], ["hotels", "hotel", "Hôtels"], ["ferry", "ship", "Ferry"], ["internet", "wifi", "Internet"], ["mobile", "phone", "Mobile"], ["assurance", "shield", "Assurance"], ["voiture", "key", "Location"], ["credit", "bank", "Crédit"], ["transfert", "send", "Transfert"]];
 
@@ -473,8 +495,21 @@
       </div>
 
       <section class="block">
-        <div class="section-title"><span class="kicker">9 comparateurs</span><h2>Que voulez-vous comparer ?</h2><p>Une seule adresse pour toutes vos dépenses du quotidien et du voyage.</p></div>
-        <div class="cat-grid">${CATS.map(([r, ic, t, s, c]) => `<a class="cat" href="#/${r}"><span class="ico" style="background:${c}1f;color:${c}">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span>${icon("arrow", "go")}</a>`).join("")}</div>
+        <div class="section-title"><span class="kicker">19 comparateurs</span><h2>Que voulez-vous comparer ?</h2><p>Une seule adresse pour toutes vos dépenses du quotidien et du voyage.</p></div>
+        ${GROUPS.map(([gt, gic, list]) => `<div class="cat-group"><h3>${icon(gic)}${gt}</h3><div class="cat-grid">${list.map((k) => { const x = CATS.find((c) => c[0] === k); return `<a class="cat" href="#/${x[0]}"><span class="ico" style="background:${x[4]}1f;color:${x[4]}">${icon(x[1])}</span><span><b>${x[2]}</b><small>${x[3]}</small></span>${icon("arrow", "go")}</a>`; }).join("")}</div></div>`).join("")}
+      </section>
+
+      <section class="block" style="padding-top:0">
+        <form class="saver" id="saver">
+          <div class="saver-txt"><span class="kicker">${icon("wallet")} Calcul express</span><h2>Combien pouvez-vous économiser ?</h2><p>Entrez vos factures actuelles : on cherche la meilleure combinaison Internet + mobiles + assurance.</p></div>
+          <div class="saver-f">
+            <div class="field"><label>Internet (DT/mois)</label><input type="number" name="curNet" min="0" value="89"></div>
+            <div class="field"><label>Mobiles (DT/mois)</label><input type="number" name="curMob" min="0" value="70"></div>
+            <div class="field"><label>Assurance auto (DT/an)</label><input type="number" name="curIns" min="0" value="1100"></div>
+            <div class="field"><label>Lignes mobiles</label><select name="lines">${[1, 2, 3, 4, 5].map((n) => opt(n, n, 2)).join("")}</select></div>
+            <button class="btn btn-primary btn-lg">${icon("calc")}Calculer mon économie</button>
+          </div>
+        </form>
       </section>
 
       <section class="block" style="padding-top:0">
@@ -519,7 +554,7 @@
           <div><b data-count="${D.internet.length + D.mobile.length}">0</b><span>offres télécom</span></div>
           <div><b data-count="${D.destinations.length * D.airportsTN.length}">0</b><span>liaisons aériennes</span></div>
           <div><b data-count="${D.insurers.length + D.rentals.length + D.banks.length + D.transfer.length}">0</b><span>assureurs, banques, loueurs & services</span></div>
-          <div><b data-count="11">0</b><span>comparateurs dont 2 multi-domaines</span></div>
+          <div><b data-count="19">0</b><span>comparateurs & calculateurs</span></div>
         </div>
       </section>
 
@@ -551,6 +586,7 @@
       Object.keys(p).forEach((k) => p[k] === "" && delete p[k]);
       go(target[f.dataset.pane], p);
     }));
+    $("#saver", app).addEventListener("submit", (e) => { e.preventDefault(); go("budget-foyer", Object.fromEntries(new FormData(e.target).entries())); });
     $$("[data-count]", app).forEach((el) => {
       const end = +el.dataset.count, t0 = performance.now();
       const step = (t) => { const k = Math.min(1, (t - t0) / 1200); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
@@ -753,7 +789,7 @@
     const days = Array.from({ length: 14 }, (_, i) => addDays(startD, i)).map((d) => ({ d, p: Math.min(...genFlights(q.from, q.to, d, q.cls).map((f) => f.price)) }));
     const cMin = Math.min(...days.map((x) => x.p)), cMax = Math.max(...days.map((x) => x.p));
     const cheapDay = days.find((x) => x.p === cMin), curP = (days.find((x) => x.d === q.date) || { p: cMin }).p;
-    const chart = `<div class="chart"><div class="chart-head"><b>${icon("chart")}Calendrier des prix <small>· aller, par personne</small></b><small>Cliquez sur un jour pour changer de date</small></div>
+    const chart = `<div class="chart"><div class="chart-head"><b>${icon("chart")}Calendrier des prix <small>· aller, par personne</small></b><button type="button" class="btn btn-soft btn-sm" data-alert>${icon("bell")}Alerte prix</button></div>
       <div class="bars">${days.map((x) => `<button type="button" data-day="${x.d}" class="${x.d === q.date ? "active" : ""} ${x.p === cMin ? "cheap" : ""}" title="${frDate(x.d)} : dès ${tnd(x.p)}"><span class="v">${x.p}</span><i style="height:${25 + ((x.p - cMin) / (cMax - cMin || 1)) * 65}%"></i><span class="d">${new Date(x.d + "T00:00:00").getDate()}/${new Date(x.d + "T00:00:00").getMonth() + 1}</span></button>`).join("")}</div>
       ${cheapDay.d !== q.date && curP - cMin > 5 ? `<div class="tip">${icon("bulb")}Partez le ${frDate(cheapDay.d, { weekday: "long", day: "numeric", month: "long" })} et économisez ${tnd(curP - cMin)} par personne.</div>` : `<div class="tip">${icon("check")}Bonne nouvelle : votre date fait partie des moins chères de la période.</div>`}</div>`;
     const form = `<form class="page-search form-grid" id="fs">
@@ -798,6 +834,7 @@
       ],
       after: () => {
         $("#fs").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("vols", p); });
+        $("[data-alert]", app).addEventListener("click", () => addAlert({ kind: "vol", from: q.from, to: q.to, date: q.date, label: `Vol ${org.city} → ${dst.city} · ${frDate(q.date)}`, now: curP, route: location.hash }));
         $$("[data-day]", app).forEach((b) => b.addEventListener("click", () => {
           const p = { from: q.from, to: q.to, date: b.dataset.day, pax: q.pax, cls: q.cls };
           if (q.ret) p.ret = q.ret < b.dataset.day ? addDays(b.dataset.day, nights || 7) : q.ret;
@@ -1104,6 +1141,7 @@
       key: "ferry", icon: "ship", title: `Ferry ${R.port} → Tunis`, crumb: "Ferry", cmpTitle: "ferry", unit: "traversées",
       sub: `${frDate(date, { weekday: "long", day: "numeric", month: "long" })}${ret ? " · retour " + frDate(ret, { weekday: "long", day: "numeric", month: "long" }) : " · aller simple"} · ${people} passager${people > 1 ? "s" : ""} · ${VEH[veh]} · ${CAB[cab]}`,
       searchForm: form, items,
+      top: `<div class="assist"><div><b>${icon("bell")}Les prix de l'été partent vite</b><small>Créez une alerte : on vous prévient si la traversée passe sous votre prix.</small></div><button type="button" class="btn btn-brand btn-sm" data-alert>${icon("bell")}Alerte prix</button></div>`,
       note: "<b>Prix de démonstration</b> modélisés selon la saison (forte hausse en juillet-août), le véhicule et l'hébergement à bord. Horaires et tarifs réels sur le site de la compagnie.",
       price: (f) => f.total, costLabel: "sur la traversée",
       perf: { label: "La plus courte", icon: "zap", get: (f) => -f.hours, text: (f) => f.hours + " h de traversée" },
@@ -1120,7 +1158,10 @@
         { g: "Prix" }, ["Total", (f) => ({ n: f.total, t: tnd(f.total) }), "min"], ["Par passager", (f) => ({ n: f.total / people, t: tnd(f.total / people) }), "min"],
         { g: "Traversée" }, ["Départ", (f) => hm(f.dep)], ["Durée", (f) => ({ n: f.hours, t: f.hours + " h" }), "min"], ["Avis", (f) => ({ n: f.rating, t: f.rating.toFixed(1) + " / 5" }), "max"], ["À bord", (f) => f.feats.join(" · ")]
       ],
-      after: () => $("#fes").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("ferry", p); })
+      after: () => {
+        $("#fes").addEventListener("submit", (e) => { e.preventDefault(); const p = Object.fromEntries(new FormData(e.target).entries()); if (!p.ret) delete p.ret; go("ferry", p); });
+        $("[data-alert]", app).addEventListener("click", () => addAlert({ kind: "ferry", route: R.id, date, ad, ch, veh, cab, label: `Ferry ${R.port} → Tunis · ${frDate(date)}`, now: Math.min(...out.map((f) => f.price)) }));
+      }
     }, params, path);
   }
 
@@ -1367,7 +1408,7 @@
       ${DEMO ? `<div class="note">${icon("alert")}<div><b>Ce site est actuellement une version de démonstration.</b> Les prix affichés sont fictifs ou estimés par des modèles. Ils ne proviennent pas des fournisseurs cités et ne constituent ni une offre ni un devis.</div></div>` : ""}
       <h2>Statut des données par comparateur</h2>
       <div class="ctable-wrap"><table class="cmp data-t"><thead><tr><th>Comparateur</th><th>Statut</th><th>Origine actuelle</th><th>Source prévue (légale)</th></tr></thead><tbody>
-      ${Object.entries(D.meta.cats).map(([k, c]) => `<tr><td><b>${LBL[k]}</b></td><td><span class="ribbon ${c.status === "Démo" ? "r-hot" : "r-ok"}">${esc(c.status)}</span></td><td>${esc(c.origin)}</td><td>${esc(c.real)}</td></tr>`).join("")}
+      ${Object.entries(D.meta.cats).map(([k, c]) => `<tr><td><b>${esc(LBL[k] || c.label || k)}</b></td><td><span class="ribbon ${c.status === "Démo" ? "r-hot" : "r-ok"}">${esc(c.status)}</span></td><td>${esc(c.origin)}</td><td>${esc(c.real)}</td></tr>`).join("")}
       </tbody></table></div>
       <p class="muted">Dernière mise à jour : ${frDate(D.meta.updated, { day: "numeric", month: "long", year: "numeric" })} · Taux de référence : 1 € = ${f3(D.meta.eurTnd)} DT · TMM ${D.meta.tmm.toFixed(2).replace(".", ",")} %</p>
       <h2>Nos engagements</h2>
@@ -1397,8 +1438,13 @@
   function favPage() {
     document.title = "Mes favoris — Qarin.tn";
     const list = Object.entries(FAV).sort((a, b) => b[1].t - a[1].t);
-    app.innerHTML = pageHead("heart", "Mes favoris", "Vos offres sauvegardées sur cet appareil.", "Favoris") + `<div class="container" style="padding:28px 20px 70px">${list.length ? `<div class="fav-list">${list.map(([k, f]) => `<div class="fav-item">${f.badge || ""}<div><b>${esc(f.title)}</b><small>${esc(f.cat)} · ${esc(f.sub)}</small><a href="${esc(f.route)}" style="font-size:13px;font-weight:700">Revoir la recherche</a></div><div class="pr">${esc(f.price)}</div><div class="rm" style="display:flex;gap:6px"><a class="btn btn-primary btn-sm" href="${esc(f.url)}" target="_blank" rel="noopener nofollow">Voir</a><button type="button" class="btn btn-ghost btn-sm" data-unfav="${esc(k)}" aria-label="Supprimer">${icon("trash")}</button></div></div>`).join("")}</div>` : `<div class="empty">${icon("heart")}<b>Aucun favori pour l'instant</b>Cliquez sur « Sauver » sur une offre pour la retrouver ici.<div style="margin-top:14px"><a class="btn btn-brand btn-sm" href="#/internet">Commencer à comparer</a></div></div>`}</div>`;
-    app.addEventListener("click", (e) => { const b = e.target.closest("[data-unfav]"); if (b) { delete FAV[b.dataset.unfav]; LS.set("qarin-favs", FAV); favCount(); router(); } });
+    const al = ALERTS();
+    const alertsHtml = al.length ? `<h2 style="margin:0 0 12px;display:flex;gap:8px;align-items:center">${icon("bell")}Mes alertes prix</h2><div class="fav-list" style="margin-bottom:30px">${al.map((a, i) => { const p = a.date >= inDays(0) ? alertPrice(a) : null; const ok = p != null && p <= a.target; return `<div class="fav-item"><div class="pbadge" style="background:${ok ? "var(--ok)" : "#64748b"}">${icon("bell")}</div><div><b>${esc(a.label)}</b><small>Objectif : ${tnd(a.target)} · ${p == null ? "date passée" : "prix actuel dès " + tnd(p)}</small></div><div class="pr" style="color:${ok ? "var(--ok)" : "inherit"}">${ok ? "Atteint !" : "En attente"}</div><div class="rm" style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-unalert="${i}" aria-label="Supprimer">${icon("trash")}</button></div></div>`; }).join("")}</div><h2 style="margin:0 0 12px;display:flex;gap:8px;align-items:center">${icon("heart")}Offres sauvegardées</h2>` : "";
+    app.innerHTML = pageHead("heart", "Mes favoris", "Vos offres sauvegardées et vos alertes prix, sur cet appareil.", "Favoris") + `<div class="container" style="padding:28px 20px 70px">${alertsHtml}${list.length ? `<div class="fav-list">${list.map(([k, f]) => `<div class="fav-item">${f.badge || ""}<div><b>${esc(f.title)}</b><small>${esc(f.cat)} · ${esc(f.sub)}</small><a href="${esc(f.route)}" style="font-size:13px;font-weight:700">Revoir la recherche</a></div><div class="pr">${esc(f.price)}</div><div class="rm" style="display:flex;gap:6px"><a class="btn btn-primary btn-sm" href="${esc(f.url)}" target="_blank" rel="noopener nofollow">Voir</a><button type="button" class="btn btn-ghost btn-sm" data-unfav="${esc(k)}" aria-label="Supprimer">${icon("trash")}</button></div></div>`).join("")}</div>` : `<div class="empty">${icon("heart")}<b>Aucun favori pour l'instant</b>Cliquez sur « Sauver » sur une offre pour la retrouver ici.<div style="margin-top:14px"><a class="btn btn-brand btn-sm" href="#/internet">Commencer à comparer</a></div></div>`}</div>`;
+    app.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-unfav]"); if (b) { delete FAV[b.dataset.unfav]; LS.set("qarin-favs", FAV); favCount(); router(); }
+      const u = e.target.closest("[data-unalert]"); if (u) { const l = ALERTS(); l.splice(+u.dataset.unalert, 1); LS.set("qarin-alerts", l); router(); }
+    });
   }
   function aboutPage() {
     document.title = "À propos — Qarin.tn";
@@ -1464,5 +1510,32 @@
   window.addEventListener("scroll", () => $("#toTop").classList.toggle("show", window.scrollY > 700), { passive: true });
   $("#year").textContent = new Date().getFullYear();
   window.addEventListener("hashchange", router);
-  router();
+
+  /* ================= alertes prix (stockées localement) ================= */
+  const ALERTS = () => LS.get("qarin-alerts", []);
+  function alertPrice(a) {
+    if (a.kind === "vol") { const l = genFlights(a.from, a.to, a.date, "eco"); return l.length ? Math.min(...l.map((f) => f.price)) : null; }
+    if (a.kind === "ferry") { const l = genFerries(a.route, a.date, a.ad, a.ch, a.veh, a.cab); return l.length ? Math.min(...l.map((f) => f.price)) : null; }
+    return null;
+  }
+  function addAlert(a) {
+    openModal(`<div class="mpad"><h2 style="margin:0 0 6px">${icon("bell")} Créer une alerte prix</h2><p class="muted" style="margin:0 0 14px">${esc(a.label)} · prix actuel dès <b>${tnd(a.now)}</b></p>
+      <form id="alf" class="form-grid"><div class="field"><label>Prévenez-moi sous</label><input type="number" name="target" value="${Math.round(a.now * 0.9)}" min="1"></div><button class="btn btn-primary">${icon("bell")}Activer l'alerte</button></form>
+      <p class="muted" style="font-size:12.5px;margin:12px 0 0">L'alerte est enregistrée sur cet appareil : elle s'affiche à votre prochaine visite si le prix passe sous votre objectif.</p></div>`, true);
+    $("#alf").addEventListener("submit", (e) => { e.preventDefault(); const l = ALERTS(); l.push(Object.assign({}, a, { target: +e.target.target.value, t: Date.now() })); LS.set("qarin-alerts", l); closeModal(); toast("Alerte prix activée", "bell"); });
+  }
+  function checkAlerts() {
+    const hit = ALERTS().filter((a) => a.date >= inDays(0)).map((a) => ({ a, p: alertPrice(a) })).filter((x) => x.p != null && x.p <= x.a.target);
+    if (hit.length) setTimeout(() => toast(`${hit.length} alerte${hit.length > 1 ? "s" : ""} prix atteinte${hit.length > 1 ? "s" : ""} — voir Mes favoris`, "bell"), 1200);
+  }
+
+  /* ================= API interne pour les modules (more.js, i18n.js) ================= */
+  window.Q = {
+    D, $, $$, esc, nf, tnd, eur, f2, f3, clamp, rng, hashStr, iso, inDays, addDays, daysBetween, frDate, validDate, hm, dur, pad, LS,
+    icon, badge, badgeOf, purl, opt, go, note, feats, meter, spec, yes, pageHead, listPage, toast, openModal, closeModal, scoreLabel,
+    minBy, scenCard, recapTable, C, DEMO, genFlights, genFerries, genHotels, genCars, insQuotes, ALERTS, alertPrice, addAlert,
+    routes, router, app: () => app, setApp: (el) => (app = el), P
+  };
+  const start = () => { router(); checkAlerts(); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();

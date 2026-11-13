@@ -10,10 +10,11 @@
   <meta property="og:description" content="Internet, mobile, vols, hôtels, assurance auto, location de voiture : comparez gratuitement selon vos priorités.">
   <meta property="og:type" content="website">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>try{if(localStorage.getItem("qarin-lang")==='"ar"'){document.documentElement.lang="ar";document.documentElement.dir="rtl"}}catch(e){}</script>
   <script>try{var t=localStorage.getItem("qarin-theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Kufi+Arabic:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Kufi+Arabic:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Qarin.tn","description":"Comparateur tunisien : Internet, mobile, vols, hôtels, assurance auto, location de voiture.","inLanguage":"fr-TN"}</script>
 </head>
@@ -25,14 +26,18 @@
     </a>
     <nav class="main" aria-label="Navigation principale">
       <div class="dd"><button type="button" class="dd-btn" data-ic="wifi" aria-expanded="false">Télécom</button>
-        <div class="menu"><a href="#/internet" data-ic="wifi">Internet<small>Fibre, VDSL, ADSL, box 4G/5G</small></a><a href="#/mobile" data-ic="phone">Forfaits mobiles<small>Data, appels, prix au Go</small></a></div></div>
+        <div class="menu"><a href="#/internet" data-ic="wifi">Internet<small>Fibre, VDSL, ADSL, box 4G/5G</small></a><a href="#/mobile" data-ic="phone">Forfaits mobiles<small>Data, appels, prix au Go</small></a><a href="#/vitesse" data-ic="gauge">Vitesse réelle<small>Test + carte par gouvernorat</small></a></div></div>
       <div class="dd"><button type="button" class="dd-btn" data-ic="plane" aria-expanded="false">Voyage</button>
-        <div class="menu"><a href="#/vols" data-ic="plane">Vols<small>Calendrier des prix</small></a><a href="#/hotels" data-ic="hotel">Hôtels<small>9 régions</small></a><a href="#/ferry" data-ic="ship">Ferry<small>Europe → Tunis avec voiture</small></a><a href="#/location-voiture" data-ic="key">Location de voiture<small>Aéroports & villes</small></a><a href="#/pack-voyage" data-ic="globe" class="hl">Pack vacances<small>Multi-domaines : coût porte-à-porte</small></a></div></div>
+        <div class="menu"><a href="#/vols" data-ic="plane">Vols<small>Calendrier des prix</small></a><a href="#/hotels" data-ic="hotel">Hôtels<small>9 régions</small></a><a href="#/location-voiture" data-ic="key">Location de voiture<small>Aéroports & villes</small></a><a href="#/transport" data-ic="bus">Transport entre villes<small>Louage, train, bus</small></a><a href="#/assurance-voyage" data-ic="umbrella">Assurance voyage<small>Visa Schengen, monde</small></a><a href="#/omra" data-ic="moon">Omra<small>Formules des agences</small></a></div></div>
+      <div class="dd"><button type="button" class="dd-btn" data-ic="home" aria-expanded="false">Maison</button>
+        <div class="menu"><a href="#/panier" data-ic="cart">Panier « Qoffa »<small>Courses : quelle enseigne ?</small></a><a href="#/high-tech" data-ic="laptop">Smartphones & high-tech<small>Prix entre boutiques</small></a><a href="#/solaire" data-ic="sun">Énergie solaire<small>Kit Prosol : coût & rentabilité</small></a><a href="#/budget-foyer" data-ic="calc" class="hl">Budget foyer<small>Toutes vos factures</small></a></div></div>
       <div class="dd"><button type="button" class="dd-btn" data-ic="wallet" aria-expanded="false">Argent</button>
         <div class="menu"><a href="#/assurance-auto" data-ic="shield">Assurance auto<small>Estimation par profil</small></a><a href="#/credit" data-ic="bank">Crédit<small>Immobilier, auto, consommation</small></a><a href="#/transfert" data-ic="send">Transfert d'argent<small>Europe → Tunisie</small></a></div></div>
-      <a href="#/budget-foyer" data-ic="home">Budget foyer</a>
+      <div class="dd"><button type="button" class="dd-btn" data-ic="globe" aria-expanded="false">Diaspora</button>
+        <div class="menu menu-end"><a href="#/pack-voyage" data-ic="globe" class="hl">Pack vacances<small>Multi-domaines : coût porte-à-porte</small></a><a href="#/ferry" data-ic="ship">Ferry<small>Europe → Tunis avec voiture</small></a><a href="#/fcr" data-ic="car">Calculateur FCR<small>Importer sa voiture ?</small></a><a href="#/transfert" data-ic="send">Transfert d'argent<small>Europe → Tunisie</small></a></div></div>
     </nav>
     <div class="hdr-actions">
+      <button type="button" class="icon-btn lang-btn" id="langBtn" aria-label="النسخة العربية">ع</button>
       <button type="button" class="icon-btn" id="themeBtn" aria-label="Changer de thème"></button>
       <a class="icon-btn" id="favBtn" href="#/favoris" aria-label="Mes favoris"><span class="dot" id="favDot" hidden>0</span></a>
       <button type="button" class="icon-btn burger" aria-label="Menu"></button>
@@ -48,8 +53,8 @@
         <h4>Qarin.tn <span class="ar" lang="ar">قارن</span></h4>
         <p>Le comparateur indépendant pour les consommateurs tunisiens. Score personnalisé, comparatif côte à côte, aucune inscription.</p>
       </div>
-      <div><h4>Télécom</h4><a href="#/internet">Internet & Fibre</a><a href="#/internet?tech=5G%20Box">Box 5G</a><a href="#/mobile">Forfaits mobiles</a><a href="#/internet?assist=1">Assistant débit</a></div>
-      <div><h4>Voyage</h4><a href="#/vols">Vols</a><a href="#/hotels">Hôtels</a><a href="#/ferry">Ferry</a><a href="#/location-voiture">Location de voiture</a><a href="#/pack-voyage">Pack vacances</a></div>
+      <div><h4>Télécom</h4><a href="#/internet">Internet & Fibre</a><a href="#/mobile">Forfaits mobiles</a><a href="#/vitesse">Vitesse réelle</a><a href="#/internet?assist=1">Assistant débit</a><h4 style="margin-top:16px">Maison</h4><a href="#/panier">Panier « Qoffa »</a><a href="#/high-tech">Smartphones & high-tech</a><a href="#/solaire">Énergie solaire</a></div>
+      <div><h4>Voyage</h4><a href="#/vols">Vols</a><a href="#/hotels">Hôtels</a><a href="#/ferry">Ferry</a><a href="#/location-voiture">Location de voiture</a><a href="#/transport">Transport entre villes</a><a href="#/assurance-voyage">Assurance voyage</a><a href="#/omra">Omra</a><a href="#/pack-voyage">Pack vacances</a><a href="#/fcr">Calculateur FCR</a></div>
       <div><h4>Argent & foyer</h4><a href="#/assurance-auto">Assurance auto</a><a href="#/credit">Crédit</a><a href="#/transfert">Transfert d'argent</a><a href="#/budget-foyer">Budget foyer</a></div>
       <div><h4>Qarin.tn</h4><a href="#/donnees">Nos données</a><a href="#/favoris">Mes favoris</a><a href="#/a-propos">À propos</a><a href="#/mentions">Mentions légales</a></div>
     </div>
@@ -67,6 +72,9 @@
   <button type="button" class="icon-btn to-top" id="toTop" aria-label="Haut de page"></button>
 
   <script src="assets/data.js"></script>
+  <script src="assets/data2.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/more.js"></script>
+  <script src="assets/i18n.js"></script>
 </body>
 </html>
